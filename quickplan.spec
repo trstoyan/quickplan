@@ -3,7 +3,7 @@ Version:        0.1.0
 Release:        1%{?dist}
 Summary:        Fast CLI task manager with project support
 License:        MIT
-URL:            https://github.com/sumix/quickplan
+URL:            https://github.com/trstoyan/quickplan
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  golang >= 1.21
@@ -28,5 +28,5 @@ install -m 755 %{name} %{buildroot}%{_bindir}/%{name}
 %{_bindir}/%{name}
 
 %changelog
-* Mon Jan 01 2024 Your Name <your.email@example.com> - 0.1.0-1
+* Mon Jan 01 2024 Stoyan TR <stoyantr@icloud.com> - 0.1.0-1
 - Initial release

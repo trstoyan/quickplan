@@ -8,6 +8,8 @@ A fast, lightweight CLI task manager for Linux with project support and vim-insp
 - 🎯 **Context switching** - Easily switch between projects
 - 🖥️ **Vim-inspired menus** - Terminal-native selection interface
 - ✓ **Task completion** - Mark tasks as done with timestamps
+- 📊 **Smart task listing** - Completed tasks shown separately at bottom (latest 5 by default)
+- 🌐 **Multi-project view** - List tasks from all projects at once
 - 📦 **Archive projects** - Archive completed or inactive projects
 - ⏰ **Timestamps** - Track creation and modification times
 - ⚡ **Fast & lightweight** - Written in Go, single binary
@@ -110,11 +112,17 @@ quickplan complete 2 --project work
 # List incomplete tasks in current project
 quickplan list
 
-# List all tasks including completed
+# List all tasks including completed (shows latest 5 completed at bottom)
 quickplan list --all
 
 # List tasks in a specific project
 quickplan list --project work --all
+
+# List tasks from all projects
+quickplan list --all-projects
+
+# List all tasks from all projects (including all completed)
+quickplan list --all-projects --all
 ```
 
 ### Archive Projects
@@ -143,11 +151,14 @@ quickplan change work
 quickplan add "Task description"
 quickplan add "Task" --project work
 
-# View tasks (incomplete only)
+# View tasks (incomplete only, latest 5 completed shown at bottom)
 quickplan list
 
 # View all tasks including completed
 quickplan list --all
+
+# View tasks from all projects
+quickplan list --all-projects
 
 # Complete tasks
 quickplan complete 1
@@ -223,6 +234,8 @@ make run
 - [x] Mark tasks as done with timestamps
 - [x] Archive projects
 - [x] Project and task timestamps
+- [x] Smart task listing (completed tasks at bottom, latest 5 by default)
+- [x] Multi-project task listing (--all-projects flag)
 - [ ] Delete tasks and projects
 - [ ] Filter and search tasks
 - [ ] Export tasks to various formats
@@ -232,7 +245,7 @@ make run
 
 ## License
 
-MIT License
+MIT License - See [LICENSE](LICENSE) file for details.
 
 ## Contributing
 

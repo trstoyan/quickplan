@@ -97,14 +97,14 @@ displays an interactive menu to select a task to complete.`,
 			// Show interactive menu
 			type taskChoice struct {
 				label string
-				task  *Task
+				taskID int
 			}
 			
 			var choices []taskChoice
-			for i := range incompleteTasks {
+			for _, task := range incompleteTasks {
 				choices = append(choices, taskChoice{
-					label: fmt.Sprintf("%d. %s", incompleteTasks[i].ID, incompleteTasks[i].Text),
-					task:  &incompleteTasks[i],
+					label: fmt.Sprintf("%d. %s", task.ID, task.Text),
+					taskID: task.ID,
 				})
 			}
 			
@@ -123,7 +123,22 @@ displays an interactive menu to select a task to complete.`,
 				return fmt.Errorf("failed to show menu: %w", err)
 			}
 			
-			taskToComplete = selected.task
+			// Find task by ID in projectData.Tasks (not incompleteTasks)
+			found := false
+			for i := range projectData.Tasks {
+				if projectData.Tasks[i].ID == selected.taskID {
+					if projectData.Tasks[i].Done {
+						return fmt.Errorf("task %d is already completed", selected.taskID)
+					}
+					taskToComplete = &projectData.Tasks[i]
+					found = true
+					break
+				}
+			}
+			
+			if !found {
+				return fmt.Errorf("task %d not found", selected.taskID)
+			}
 		}
 		
 		// Mark task as completed

@@ -41,11 +41,20 @@ quickplan add "Complete the documentation"
 # Add task to specific project
 quickplan add "Review PR" --project work
 
-# List tasks in current project
+# List tasks in current project (incomplete + latest 5 completed)
 quickplan list
+
+# List all tasks including all completed
+quickplan list --all
 
 # List tasks in specific project
 quickplan list --project work
+
+# List tasks from all projects
+quickplan list --all-projects
+
+# List all tasks from all projects
+quickplan list --all-projects --all
 ```
 
 ## Workflow Examples

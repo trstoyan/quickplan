@@ -26,6 +26,7 @@ clean:
 # Build RPM package
 rpm: build
 	@echo "Building RPM package..."
+	@which rpmbuild > /dev/null || (echo "Error: rpmbuild not found. Install it with: sudo pacman -S rpm-tools (Arch) or sudo dnf install rpm-build (Fedora/RHEL)" && exit 1)
 	@mkdir -p $(RPM_DIR)/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 	@mkdir -p $(RPM_DIR)/SOURCES/$(BINARY_NAME)-$(VERSION)
 	@cp $(BUILD_DIR)/$(BINARY_NAME) $(RPM_DIR)/SOURCES/$(BINARY_NAME)-$(VERSION)/
