@@ -35,6 +35,7 @@ func init() {
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(completeCmd)
 	rootCmd.AddCommand(archiveCmd)
+	rootCmd.AddCommand(bdchartCmd)
 }
 
 // Get the data directory for storing projects and tasks
