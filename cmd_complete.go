@@ -146,6 +146,14 @@ displays an interactive menu to select a task to complete.`,
 		now := time.Now()
 		taskToComplete.Completed = &now
 		
+		noteText, _ := cmd.Flags().GetString("note")
+		if noteText != "" {
+			taskToComplete.Notes = append(taskToComplete.Notes, NoteEntry{
+				Text:      noteText,
+				Timestamp: now,
+			})
+		}
+		
 		// Update modified timestamp
 		projectData.Modified = time.Now()
 		
@@ -166,4 +174,5 @@ displays an interactive menu to select a task to complete.`,
 
 func init() {
 	completeCmd.Flags().StringP("project", "p", "", "Complete task in this project instead of current")
+	completeCmd.Flags().StringP("note", "n", "", "Add a note to the completed task")
 }
