@@ -2,12 +2,9 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var bdchartCmd = &cobra.Command{
@@ -27,22 +24,18 @@ showing the number of incomplete tasks over time.`,
 			return fmt.Errorf("project '%s' does not exist", targetProject)
 		}
 
-		// Load tasks
+		// Load project data
 		dataDir, err := getDataDir()
 		if err != nil {
 			return fmt.Errorf("failed to get data directory: %w", err)
 		}
 
-		tasksFile := filepath.Join(dataDir, targetProject, "tasks.yaml")
+		versionManager := NewVersionManager(version)
+		projectManager := NewProjectDataManager(dataDir, versionManager)
 
-		data, err := os.ReadFile(tasksFile)
+		projectData, err := projectManager.LoadProjectData(targetProject)
 		if err != nil {
-			return fmt.Errorf("failed to read tasks file: %w", err)
-		}
-
-		var projectData ProjectData
-		if err := yaml.Unmarshal(data, &projectData); err != nil {
-			return fmt.Errorf("failed to parse tasks file: %w", err)
+			return fmt.Errorf("failed to load project data: %w", err)
 		}
 
 		fmt.Println("Generating burndown chart for project:", targetProject)

@@ -8,10 +8,15 @@ A fast, lightweight CLI task manager for Linux with project support and vim-insp
 - 🎯 **Context switching** - Easily switch between projects
 - 🖥️ **Vim-inspired menus** - Terminal-native selection interface
 - ✓ **Task completion** - Mark tasks as done with timestamps
+- 🗑️ **Delete tasks** - Remove tasks with confirmation
 - 📊 **Smart task listing** - Completed tasks shown separately at bottom (latest 5 by default)
 - 🌐 **Multi-project view** - List tasks from all projects at once
 - 📦 **Archive projects** - Archive completed or inactive projects
 - ⏰ **Timestamps** - Track creation and modification times
+- 🔄 **Version tracking** - Automatic version migration for project data
+- 🚫 **Ignore patterns** - Customize which directories to ignore (`.quickplanignore`)
+- 🔗 **Sync source config** - Prepare for future team collaboration (git/server sync)
+- 📈 **Burndown charts** - Visualize task completion progress over time
 - ⚡ **Fast & lightweight** - Written in Go, single binary
 - 📦 **RPM packaging** - Easy installation on RPM-based systems
 
@@ -104,6 +109,22 @@ quickplan complete 1
 
 # Complete task in specific project
 quickplan complete 2 --project work
+
+# Add a note when completing
+quickplan complete 1 --note "Reviewed and approved"
+```
+
+### Delete Tasks
+
+```bash
+# Delete a task by ID (with confirmation)
+quickplan delete 1
+
+# Delete task in specific project
+quickplan delete 3 --project work
+
+# Force delete without confirmation
+quickplan delete 2 --force
 ```
 
 ### List Tasks
@@ -137,6 +158,34 @@ quickplan archive old-project
 # Unarchive (toggle off)
 quickplan archive old-project
 ```
+
+### Burndown Charts
+
+```bash
+# Display a text-based burndown chart for the current project
+quickplan bdchart
+```
+
+Visualize task completion progress over time with a simple ASCII chart showing incomplete tasks per day.
+
+### Ignore Patterns
+
+QuickPlan automatically ignores certain directories like `.git` when listing projects. You can customize this behavior:
+
+```bash
+# Create a .quickplanignore file in ~/.local/share/quickplan/
+# Add patterns (one per line, supports glob matching):
+#
+# .git
+# temp
+# backup-*
+# test_*
+```
+
+Default ignored patterns:
+- `.git` - Git repository directories
+- `.*` - All hidden directories (starting with dot)
+- `.current_project` - QuickPlan's internal context file
 
 ### Project Management Summary
 
@@ -174,19 +223,26 @@ The current project is stored in `~/.local/share/quickplan/.current_project`
 ```
 ~/.local/share/quickplan/
 ├── .current_project          # Currently active project
+├── .quickplanignore          # Custom ignore patterns (optional)
 ├── default/
-│   └── tasks.yaml           # Tasks for default project
+│   ├── tasks.yaml           # Tasks for default project
+│   └── project.yml          # Project configuration
 ├── work/
-│   └── tasks.yaml           # Tasks for work project
+│   ├── tasks.yaml           # Tasks for work project
+│   └── project.yml          # Project configuration
 └── myproject/
-    └── tasks.yaml           # Tasks for myproject
+    ├── tasks.yaml           # Tasks for myproject
+    └── project.yml          # Project configuration
 ```
 
-## Tasks File Format
+## File Formats
 
-Tasks are stored in YAML format with timestamps:
+### tasks.yaml
+
+Tasks are stored in YAML format with timestamps and version tracking:
 
 ```yaml
+quickplan-cli-version: "0.1.0"
 tasks:
   - id: 1
     text: "Complete the documentation"
@@ -201,6 +257,23 @@ created: 2025-11-03T13:07:12Z
 modified: 2025-11-03T14:30:00Z
 archived: false
 ```
+
+### project.yml
+
+Project configuration for future sync capabilities:
+
+```yaml
+name: "myproject"
+description: "My awesome project"
+sync_source:
+  type: "local"  # Options: local, git, server
+  url: ""        # For git: repo URL, for server: quickplan.sh URL
+  branch: ""     # For git sources
+created: 2025-11-03T13:07:12Z
+modified: 2025-11-03T14:30:00Z
+```
+
+**Note:** The `sync_source` configuration prepares QuickPlan for future team collaboration features, allowing projects to sync from different sources (git repositories, quickplan.sh servers, etc.).
 
 ## Development
 
@@ -220,6 +293,12 @@ make clean
 
 # Run application
 make run
+
+# Run tests
+go test -v ./...
+
+# Run tests with coverage
+go test -cover ./...
 ```
 
 ### Dependencies
@@ -230,18 +309,38 @@ make run
 
 ## Roadmap
 
+### v0.9 - Production Readiness (Current)
 - [x] List tasks with completion status
 - [x] Mark tasks as done with timestamps
 - [x] Archive projects
 - [x] Project and task timestamps
 - [x] Smart task listing (completed tasks at bottom, latest 5 by default)
 - [x] Multi-project task listing (--all-projects flag)
-- [ ] Delete tasks and projects
+- [x] Burndown charts
+- [x] Delete tasks with confirmation
+- [x] Version tracking and migration
+- [x] .quickplanignore support
+- [x] Project configuration (project.yml)
+- [x] Comprehensive unit tests
+
+### v1.0 - Individual User Features
 - [ ] Filter and search tasks
 - [ ] Export tasks to various formats
 - [ ] Import from other task managers
 - [ ] Task priorities and due dates
-- [ ] Task notes and descriptions
+- [ ] Enhanced task notes and descriptions
+
+### v1.5 - Team Collaboration (Free)
+- [ ] Git-based sync for team projects
+- [ ] Windows support
+- [ ] Cross-platform binary distribution
+
+### v2.0 - SaaS Platform (Paid)
+- [ ] quickplan.sh subscription service
+- [ ] Web interface
+- [ ] Real-time team collaboration
+- [ ] Advanced reporting and analytics
+- [ ] Manager CLI (extended features - paid only)
 
 ## License
 

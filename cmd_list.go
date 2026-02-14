@@ -2,12 +2,9 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var listCmd = &cobra.Command{
@@ -53,23 +50,19 @@ func listProjectTasks(targetProject string, showAll bool) error {
 	if !projectExists(targetProject) {
 		return fmt.Errorf("project '%s' does not exist", targetProject)
 	}
-	
-	// Load tasks
+
+	// Load project data
 	dataDir, err := getDataDir()
 	if err != nil {
 		return fmt.Errorf("failed to get data directory: %w", err)
 	}
-	
-	tasksFile := filepath.Join(dataDir, targetProject, "tasks.yaml")
-	
-	data, err := os.ReadFile(tasksFile)
+
+	versionManager := NewVersionManager(version)
+	projectManager := NewProjectDataManager(dataDir, versionManager)
+
+	projectData, err := projectManager.LoadProjectData(targetProject)
 	if err != nil {
-		return fmt.Errorf("failed to read tasks file: %w", err)
-	}
-	
-	var projectData ProjectData
-	if err := yaml.Unmarshal(data, &projectData); err != nil {
-		return fmt.Errorf("failed to parse tasks file: %w", err)
+		return fmt.Errorf("failed to load project data: %w", err)
 	}
 	
 	fmt.Printf("Tasks in project '%s':\n", targetProject)
@@ -171,24 +164,23 @@ func listAllProjects(showAll bool) error {
 	sort.Strings(projects)
 	
 	hasAnyTasks := false
+	dataDir, _ := getDataDir()
+	versionManager := NewVersionManager(version)
+	projectManager := NewProjectDataManager(dataDir, versionManager)
+
 	for i, project := range projects {
 		if i > 0 {
 			fmt.Println()
 		}
-		
+
 		// Check if this project has tasks before displaying
-		dataDir, err := getDataDir()
-		if err == nil {
-			tasksFile := filepath.Join(dataDir, project, "tasks.yaml")
-			if data, readErr := os.ReadFile(tasksFile); readErr == nil {
-				var projectData ProjectData
-				if yaml.Unmarshal(data, &projectData) == nil && len(projectData.Tasks) > 0 {
-					hasAnyTasks = true
-				}
+		if projectData, err := projectManager.LoadProjectData(project); err == nil {
+			if len(projectData.Tasks) > 0 {
+				hasAnyTasks = true
 			}
 		}
-		
-		err = listProjectTasks(project, showAll)
+
+		err := listProjectTasks(project, showAll)
 		if err != nil {
 			// Skip projects that can't be read, but continue with others
 			fmt.Printf("Error loading project '%s': %v\n", project, err)

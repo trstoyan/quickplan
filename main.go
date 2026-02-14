@@ -34,6 +34,7 @@ func init() {
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(completeCmd)
+	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(archiveCmd)
 	rootCmd.AddCommand(bdchartCmd)
 }

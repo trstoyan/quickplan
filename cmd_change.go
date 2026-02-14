@@ -70,19 +70,29 @@ func listProjects() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	entries, err := os.ReadDir(dataDir)
 	if err != nil {
 		return nil, err
 	}
-	
+
+	// Initialize ignore filter
+	ignoreFilter := NewIgnoreFilter()
+	if err := ignoreFilter.LoadIgnoreFile(dataDir); err != nil {
+		// Log warning but continue with default patterns
+		// Could add logging here in the future
+	}
+
 	var projects []string
 	for _, entry := range entries {
 		if entry.IsDir() && entry.Name() != "." && entry.Name() != ".." {
-			projects = append(projects, entry.Name())
+			// Apply ignore filter
+			if !ignoreFilter.ShouldIgnore(entry.Name()) {
+				projects = append(projects, entry.Name())
+			}
 		}
 	}
-	
+
 	return projects, nil
 }
 

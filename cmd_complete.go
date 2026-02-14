@@ -2,14 +2,11 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var completeCmd = &cobra.Command{
@@ -20,39 +17,28 @@ displays an interactive menu to select a task to complete.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Determine target project
-		var targetProject string
-		projectFlag, _ := cmd.Flags().GetString("project")
-		if projectFlag != "" {
-			targetProject = projectFlag
-		} else {
-			var err error
-			targetProject, err = getCurrentProject()
-			if err != nil {
-				return fmt.Errorf("failed to get current project: %w", err)
-			}
+		targetProject, err := getTargetProject(cmd)
+		if err != nil {
+			return err
 		}
-		
+
 		// Validate project exists
 		if !projectExists(targetProject) {
 			return fmt.Errorf("project '%s' does not exist", targetProject)
 		}
-		
-		// Load tasks
+
+		// Load project data
 		dataDir, err := getDataDir()
 		if err != nil {
 			return fmt.Errorf("failed to get data directory: %w", err)
 		}
-		
-		tasksFile := filepath.Join(dataDir, targetProject, "tasks.yaml")
-		
-		data, err := os.ReadFile(tasksFile)
+
+		versionManager := NewVersionManager(version)
+		projectManager := NewProjectDataManager(dataDir, versionManager)
+
+		projectData, err := projectManager.LoadProjectData(targetProject)
 		if err != nil {
-			return fmt.Errorf("failed to read tasks file: %w", err)
-		}
-		
-		var projectData ProjectData
-		if err := yaml.Unmarshal(data, &projectData); err != nil {
-			return fmt.Errorf("failed to parse tasks file: %w", err)
+			return fmt.Errorf("failed to load project data: %w", err)
 		}
 		
 		// Filter out already completed tasks for menu
@@ -145,7 +131,7 @@ displays an interactive menu to select a task to complete.`,
 		taskToComplete.Done = true
 		now := time.Now()
 		taskToComplete.Completed = &now
-		
+
 		noteText, _ := cmd.Flags().GetString("note")
 		if noteText != "" {
 			taskToComplete.Notes = append(taskToComplete.Notes, NoteEntry{
@@ -153,20 +139,12 @@ displays an interactive menu to select a task to complete.`,
 				Timestamp: now,
 			})
 		}
-		
-		// Update modified timestamp
-		projectData.Modified = time.Now()
-		
-		// Save to file
-		data, err = yaml.Marshal(&projectData)
-		if err != nil {
-			return fmt.Errorf("failed to marshal tasks: %w", err)
+
+		// Save project data
+		if err := projectManager.SaveProjectData(targetProject, projectData); err != nil {
+			return fmt.Errorf("failed to save project data: %w", err)
 		}
-		
-		if err := os.WriteFile(tasksFile, data, 0644); err != nil {
-			return fmt.Errorf("failed to write tasks file: %w", err)
-		}
-		
+
 		fmt.Printf("Completed task: %s\n", taskToComplete.Text)
 		return nil
 	},
