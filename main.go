@@ -37,23 +37,45 @@ func init() {
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(archiveCmd)
 	rootCmd.AddCommand(bdchartCmd)
+	rootCmd.AddCommand(undoCmd)
 }
 
 // Get the data directory for storing projects and tasks
 func getDataDir() (string, error) {
+	// 1. Allow overriding data directory via environment variable
+	if envDir := os.Getenv("QUICKPLAN_DATADIR"); envDir != "" {
+		if err := os.MkdirAll(envDir, 0755); err != nil {
+			return "", fmt.Errorf("failed to create custom data directory: %w", err)
+		}
+		return envDir, nil
+	}
+
+	// 2. Try standard location (~/.local/share/quickplan)
 	usr, err := user.Current()
-	if err != nil {
-		return "", err
+	if err == nil {
+		dataDir := filepath.Join(usr.HomeDir, ".local", "share", "quickplan")
+		if err := os.MkdirAll(dataDir, 0755); err == nil {
+			ensureIgnoreFile(dataDir)
+			return dataDir, nil
+		}
+	}
+
+	// 3. Fallback to a temporary directory if standard location is unavailable
+	tmpDataDir := filepath.Join(os.TempDir(), "quickplan")
+	if err := os.MkdirAll(tmpDataDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create fallback data directory: %w", err)
 	}
 	
-	dataDir := filepath.Join(usr.HomeDir, ".local", "share", "quickplan")
-	
-	// Create directory if it doesn't exist
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		return "", err
+	ensureIgnoreFile(tmpDataDir)
+	return tmpDataDir, nil
+}
+
+// ensureIgnoreFile ensures a default ignore file exists in the given directory
+func ensureIgnoreFile(dataDir string) {
+	if err := CreateDefaultIgnoreFile(dataDir); err != nil {
+		// Log warning but continue
+		fmt.Fprintf(os.Stderr, "Warning: failed to create default ignore file: %v\n", err)
 	}
-	
-	return dataDir, nil
 }
 
 // Get the current project context

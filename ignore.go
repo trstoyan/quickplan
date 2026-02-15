@@ -26,6 +26,8 @@ func getDefaultIgnorePatterns() []string {
 		".git",           // Git repository directory
 		".current_project", // QuickPlan internal file (not a project directory)
 		".*",             // Hidden files/directories (starts with dot)
+		"node_modules",   // Node.js dependencies
+		"build",          // Build artifacts
 	}
 }
 
@@ -108,6 +110,8 @@ func CreateDefaultIgnoreFile(dataDir string) error {
 # Default patterns (automatically applied even if not listed here)
 .git
 .*
+node_modules
+build
 
 # Add your custom patterns below:
 # Examples:

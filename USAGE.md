@@ -41,6 +41,9 @@ quickplan add "Complete the documentation"
 # Add task to specific project
 quickplan add "Review PR" --project work
 
+# Mark a task as complete
+quickplan complete 1
+
 # List tasks in current project (incomplete + latest 5 completed)
 quickplan list
 
@@ -49,6 +52,15 @@ quickplan list --all
 
 # List tasks in specific project
 quickplan list --project work
+
+# Delete a task
+quickplan delete 1
+
+# Delete multiple tasks
+quickplan delete 1 2 3
+
+# Undo the last deletion
+quickplan undo
 
 # List tasks from all projects
 quickplan list --all-projects

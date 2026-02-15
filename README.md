@@ -120,11 +120,21 @@ quickplan complete 1 --note "Reviewed and approved"
 # Delete a task by ID (with confirmation)
 quickplan delete 1
 
+# Delete multiple tasks at once
+quickplan delete 1 2 3
+
 # Delete task in specific project
 quickplan delete 3 --project work
 
 # Force delete without confirmation
 quickplan delete 2 --force
+```
+
+### Undo Deletion
+
+```bash
+# Restore tasks removed in the last delete command
+quickplan undo
 ```
 
 ### List Tasks
@@ -185,6 +195,8 @@ QuickPlan automatically ignores certain directories like `.git` when listing pro
 Default ignored patterns:
 - `.git` - Git repository directories
 - `.*` - All hidden directories (starting with dot)
+- `node_modules` - Node.js dependencies
+- `build` - Build artifacts
 - `.current_project` - QuickPlan's internal context file
 
 ### Project Management Summary

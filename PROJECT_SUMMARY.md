@@ -69,6 +69,11 @@ All data stored in `~/.local/share/quickplan/`:
 3. **`quickplan change [project]`** - Switch project with interactive menu
 4. **`quickplan add [task] --project`** - Add tasks to projects
 5. **`quickplan list --project`** - List tasks in projects
+6. **`quickplan complete [id]`** - Mark tasks as done
+7. **`quickplan delete [id...]`** - Delete one or more tasks
+8. **`quickplan undo`** - Undo the last deletion
+9. **`quickplan archive [project]`** - Archive projects
+10. **`quickplan bdchart`** - Show burndown chart
 
 ### Interactive Features
 
@@ -126,8 +131,9 @@ User requirement: "not using python, we can make it as RPM"
 
 ## Future Enhancements (Roadmap)
 
-- [ ] Mark tasks as done
-- [ ] Delete tasks
+- [x] Mark tasks as done
+- [x] Delete tasks
+- [x] Undo/redo support (undo for deletion)
 - [ ] Task priorities and due dates
 - [ ] Filter and search
 - [ ] Export to various formats
@@ -135,7 +141,6 @@ User requirement: "not using python, we can make it as RPM"
 - [ ] Task notes/descriptions
 - [ ] Task tags/categories
 - [ ] Recurring tasks
-- [ ] Undo/redo support
 
 ## Testing
 
