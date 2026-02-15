@@ -150,7 +150,18 @@ func listProjectTasks(targetProject string, showAll bool) error {
 
 // listAllProjects displays tasks from all projects
 func listAllProjects(showAll bool) error {
-	projects, err := listProjects()
+	dataDir, err := getDataDir()
+	if err != nil {
+		return fmt.Errorf("failed to get data directory: %w", err)
+	}
+
+	versionManager := NewVersionManager(version)
+	projectManager := NewProjectDataManager(dataDir, versionManager)
+
+	// In list all projects, we probably want to see only active projects by default
+	// unless showAll is true (which refers to tasks, but let's use it for projects here too if it makes sense)
+	// Actually, let's stick to active projects for --all-projects by default.
+	projects, err := projectManager.ListProjects(showAll)
 	if err != nil {
 		return fmt.Errorf("failed to list projects: %w", err)
 	}
@@ -164,9 +175,6 @@ func listAllProjects(showAll bool) error {
 	sort.Strings(projects)
 	
 	hasAnyTasks := false
-	dataDir, _ := getDataDir()
-	versionManager := NewVersionManager(version)
-	projectManager := NewProjectDataManager(dataDir, versionManager)
 
 	for i, project := range projects {
 		if i > 0 {

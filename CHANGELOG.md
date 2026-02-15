@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [0.1.0] - 2026-02-15
 
 ### Added
+- **Project Filtering**: Archived projects are now hidden by default in `quickplan projects` and `quickplan change`.
+- **Projects All Flag**: Added `--all` flag to `quickplan projects` to display archived projects.
 - **Batch Deletion Support**: `quickplan delete` now supports deleting multiple tasks at once (e.g., `quickplan delete 1 2 3`).
 - **Undo Deletion**: New `quickplan undo` command to restore tasks removed in the last deletion.
 - **Enhanced Data Storage Reliability**: 

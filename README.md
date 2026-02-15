@@ -70,8 +70,11 @@ quickplan create
 ### List Projects
 
 ```bash
-# List all available projects and current one
+# List only active projects and current one
 quickplan projects
+
+# List all projects including archived ones
+quickplan projects --all
 ```
 
 ### Switch Between Projects

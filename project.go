@@ -186,6 +186,40 @@ func (pdm *ProjectDataManager) SaveProjectConfig(projectName string, config *Pro
 	return nil
 }
 
+// ListProjects returns a list of project names, optionally including archived ones
+func (pdm *ProjectDataManager) ListProjects(includeArchived bool) ([]string, error) {
+	entries, err := os.ReadDir(pdm.dataDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize ignore filter
+	ignoreFilter := NewIgnoreFilter()
+	if err := ignoreFilter.LoadIgnoreFile(pdm.dataDir); err != nil {
+		// Log warning but continue with default patterns
+		fmt.Fprintf(os.Stderr, "Warning: failed to load ignore file: %v\n", err)
+	}
+
+	var projects []string
+	for _, entry := range entries {
+		if entry.IsDir() && entry.Name() != "." && entry.Name() != ".." {
+			// Apply ignore filter
+			if !ignoreFilter.ShouldIgnore(entry.Name()) {
+				if !includeArchived {
+					// Check if project is archived
+					projectData, err := pdm.LoadProjectData(entry.Name())
+					if err == nil && projectData.Archived {
+						continue
+					}
+				}
+				projects = append(projects, entry.Name())
+			}
+		}
+	}
+
+	return projects, nil
+}
+
 // createDefaultConfig creates a default project configuration
 func (pdm *ProjectDataManager) createDefaultConfig(projectName string) (*ProjectConfig, error) {
 	config := &ProjectConfig{

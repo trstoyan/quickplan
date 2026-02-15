@@ -23,13 +23,21 @@ displays a vim-inspired selection menu to choose from available projects.`,
 			selectedProject = args[0]
 		} else {
 			// Show interactive menu
-			projects, err := listProjects()
+			dataDir, err := getDataDir()
+			if err != nil {
+				return fmt.Errorf("failed to get data directory: %w", err)
+			}
+
+			versionManager := NewVersionManager(version)
+			projectManager := NewProjectDataManager(dataDir, versionManager)
+
+			projects, err := projectManager.ListProjects(false) // Don't show archived in selection menu
 			if err != nil {
 				return fmt.Errorf("failed to list projects: %w", err)
 			}
 			
 			if len(projects) == 0 {
-				return fmt.Errorf("no projects found. Create one with 'quickplan create <name>'")
+				return fmt.Errorf("no projects found (or all are archived). Create one with 'quickplan create <name>'")
 			}
 			
 			var chosen string
@@ -63,37 +71,6 @@ displays a vim-inspired selection menu to choose from available projects.`,
 		fmt.Printf("Switched to project '%s'\n", selectedProject)
 		return nil
 	},
-}
-
-func listProjects() ([]string, error) {
-	dataDir, err := getDataDir()
-	if err != nil {
-		return nil, err
-	}
-
-	entries, err := os.ReadDir(dataDir)
-	if err != nil {
-		return nil, err
-	}
-
-	// Initialize ignore filter
-	ignoreFilter := NewIgnoreFilter()
-	if err := ignoreFilter.LoadIgnoreFile(dataDir); err != nil {
-		// Log warning but continue with default patterns
-		// Could add logging here in the future
-	}
-
-	var projects []string
-	for _, entry := range entries {
-		if entry.IsDir() && entry.Name() != "." && entry.Name() != ".." {
-			// Apply ignore filter
-			if !ignoreFilter.ShouldIgnore(entry.Name()) {
-				projects = append(projects, entry.Name())
-			}
-		}
-	}
-
-	return projects, nil
 }
 
 func projectExists(projectName string) bool {
