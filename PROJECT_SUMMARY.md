@@ -65,8 +65,8 @@ All data stored in `~/.local/share/quickplan/`:
 ### Commands Implemented
 
 1. **`quickplan create [name] --project`** - Create new projects
-2. **`quickplan projects`** - List all available projects
-3. **`quickplan change [project]`** - Switch project with interactive menu
+2. **`quickplan projects [--all]`** - List active projects (or all with --all)
+3. **`quickplan change [project]`** - Switch project with interactive menu (active projects only)
 4. **`quickplan add [task] --project`** - Add tasks to projects
 5. **`quickplan list --project`** - List tasks in projects
 6. **`quickplan complete [id]`** - Mark tasks as done
@@ -77,7 +77,7 @@ All data stored in `~/.local/share/quickplan/`:
 
 ### Interactive Features
 
-The `quickplan change` command (without arguments) displays an interactive selection menu using Charmbracelet Huh:
+The `quickplan change` command (without arguments) displays an interactive selection menu using Charmbracelet Huh for active projects:
 
 - Arrow key navigation
 - Enter to select

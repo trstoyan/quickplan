@@ -18,14 +18,17 @@ quickplan create
 ### Listing Projects
 
 ```bash
-# List all available projects (shows current with *)
+# List only active projects (shows current with *)
 quickplan projects
+
+# List all projects including archived ones
+quickplan projects --all
 ```
 
 ### Switching Projects
 
 ```bash
-# Show interactive menu to select project
+# Show interactive menu to select from active projects
 quickplan change
 
 # Switch directly
@@ -61,6 +64,15 @@ quickplan delete 1 2 3
 
 # Undo the last deletion
 quickplan undo
+
+# Archive/unarchive current project
+quickplan archive
+
+# Archive/unarchive specific project
+quickplan archive old-project
+
+# Show burndown chart for current project
+quickplan bdchart
 
 # List tasks from all projects
 quickplan list --all-projects
