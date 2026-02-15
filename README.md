@@ -26,7 +26,8 @@ A fast, lightweight CLI task manager for Linux with project support and vim-insp
 
 ```bash
 # Clone or download the source
-cd quick-plan-cli
+git clone https://github.com/trstoyan/quickplan.git
+cd quickplan
 
 # Build the binary
 make build
@@ -300,6 +301,10 @@ modified: 2025-11-03T14:30:00Z
 ### Build
 
 ```bash
+# Clone/download source
+git clone https://github.com/trstoyan/quickplan.git
+cd quickplan
+
 # Build binary
 make build
 
