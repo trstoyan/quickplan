@@ -36,12 +36,33 @@ type NoteEntry struct {
 	Timestamp time.Time `yaml:"timestamp"`
 }
 
+// AgentBehavior defines the "personality" and "loop rules" for an AI agent.
+type AgentBehavior struct {
+	Role         string `yaml:"role,omitempty"`          // e.g., "Senior Go Architect"
+	LifeCycle    string `yaml:"lifecycle,omitempty"`     // e.g., "Atomic" (one-shot) or "Infinite" (loop)
+	LoopInterval string `yaml:"loop_interval,omitempty"` // e.g., "30s"
+	Strategy     string `yaml:"strategy,omitempty"`      // e.g., "TDD" or "Fast Prototype"
+}
+
 // Task represents a single task item
 type Task struct {
-	ID        int        `yaml:"id"`
-	Text      string     `yaml:"text"`
-	Done      bool       `yaml:"done"`
-	Created   time.Time  `yaml:"created"`
-	Completed *time.Time `yaml:"completed,omitempty"`
-	Notes     []NoteEntry   `yaml:"notes,omitempty"`
+	ID           int           `yaml:"id"`
+	Text         string        `yaml:"text"`
+	Done         bool          `yaml:"done"`
+	Created      time.Time     `yaml:"created"`
+	Completed    *time.Time    `yaml:"completed,omitempty"`
+	Notes        []NoteEntry   `yaml:"notes,omitempty"`
+	AssignedTo   string        `yaml:"assigned_to,omitempty"`
+	DependsOn    []int         `yaml:"depends_on,omitempty"`
+	Behavior     AgentBehavior `yaml:"behavior,omitempty"`
+	ContextFiles []string      `yaml:"context_files,omitempty"`
+	WatchPath    string        `yaml:"watch_path,omitempty"`
+}
+
+// Lock represents the lock file metadata
+type Lock struct {
+	PID       int       `yaml:"pid"`
+	Host      string    `yaml:"host"`
+	CreatedAt time.Time `yaml:"created_at"`
+	TTL       int       `yaml:"ttl_seconds"`
 }

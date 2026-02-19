@@ -38,6 +38,13 @@ func init() {
 	rootCmd.AddCommand(archiveCmd)
 	rootCmd.AddCommand(bdchartCmd)
 	rootCmd.AddCommand(undoCmd)
+	rootCmd.AddCommand(agentCmd)
+	rootCmd.AddCommand(syncCmd)
+	rootCmd.AddCommand(initCmd)
+	rootCmd.AddCommand(swarmCmd)
+	rootCmd.AddCommand(pulseCmd)
+	rootCmd.AddCommand(lockCmd)
+	rootCmd.AddCommand(unlockCmd)
 }
 
 // Get the data directory for storing projects and tasks

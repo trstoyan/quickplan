@@ -144,27 +144,35 @@ All data is stored in `~/.local/share/quickplan/`:
     └── tasks.yaml        # Personal project tasks
 ```
 
-## Task File Format
+## Swarm Orchestration (v0.3.0)
 
-Tasks are stored in YAML:
+Automate your multi-agent workflow with the Swarm Orchestrator.
 
-```yaml
-tasks:
-  - id: 1
-    text: "Your task description"
-    done: false
-  - id: 2
-    text: "Another task"
-    done: false
+### Initialization
+
+```bash
+# Interactive Wizard
+quickplan init --interactive
 ```
 
-## Tips
+This will guide you through:
+1. Creating a project.
+2. Seeding initial tasks with agent roles.
 
-- Use quotes around multi-word task descriptions
-- Projects are automatically created if using `--project` flag with `add` command
-- The interactive menu in `quickplan change` works with arrow keys
-- Press Enter to select in the interactive menu
-- Your current project persists across shell sessions
+### Starting a Swarm
+
+```bash
+# Start 3 worker agents for the current project
+quickplan swarm start --workers 3
+
+# Start 5 workers for a specific project
+quickplan swarm start --workers 5 --project my-app
+```
+
+The orchestrator will:
+1. Extract the necessary execution scripts (`qp-loop.sh`).
+2. Spawn background processes for each worker.
+3. Agents will automatically pick up tasks assigned to them or broadcast to the swarm.
 
 ## Installation
 

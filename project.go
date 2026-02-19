@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"syscall"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -22,6 +24,107 @@ func NewProjectDataManager(dataDir string, versionManager *VersionManager) *Proj
 		dataDir:        dataDir,
 		versionManager: versionManager,
 	}
+}
+
+// getLockPath returns the path to the lock file for a project
+func (pdm *ProjectDataManager) getLockPath(projectName string) string {
+	return filepath.Join(pdm.dataDir, projectName, ".quickplan.lock")
+}
+
+// AcquireLock attempts to acquire a lock for the project
+func (pdm *ProjectDataManager) AcquireLock(projectName string, ttl int) error {
+	lockPath := pdm.getLockPath(projectName)
+
+	// Try to create the lock file with O_EXCL
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Project directory might not exist yet (e.g. during creation)
+			return nil
+		}
+		if os.IsExist(err) {
+			// Lock already exists, check if it's stale
+			stale, existingLock, err := pdm.IsLockStale(projectName)
+			if err != nil {
+				return fmt.Errorf("failed to check if lock is stale: %w", err)
+			}
+			if stale {
+				fmt.Fprintf(os.Stderr, "Warning: stale lock detected from pid %d on host %s, overriding...\n", existingLock.PID, existingLock.Host)
+				// Remove stale lock and try again once
+				os.Remove(lockPath)
+				return pdm.AcquireLock(projectName, ttl)
+			}
+			return fmt.Errorf("project is locked by pid %d on host %s (created at %s)", existingLock.PID, existingLock.Host, existingLock.CreatedAt.Format(time.RFC3339))
+		}
+		return fmt.Errorf("failed to create lock file: %w", err)
+	}
+	defer f.Close()
+
+	host, _ := os.Hostname()
+	lock := Lock{
+		PID:       os.Getpid(),
+		Host:      host,
+		CreatedAt: time.Now(),
+		TTL:       ttl,
+	}
+
+	data, err := yaml.Marshal(lock)
+	if err != nil {
+		return fmt.Errorf("failed to marshal lock data: %w", err)
+	}
+
+	if _, err := f.Write(data); err != nil {
+		return fmt.Errorf("failed to write lock data: %w", err)
+	}
+
+	return nil
+}
+
+// ReleaseLock removes the lock file
+func (pdm *ProjectDataManager) ReleaseLock(projectName string) error {
+	lockPath := pdm.getLockPath(projectName)
+	err := os.Remove(lockPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to release lock: %w", err)
+	}
+	return nil
+}
+
+// IsLockStale checks if a lock is stale
+func (pdm *ProjectDataManager) IsLockStale(projectName string) (bool, *Lock, error) {
+	lockPath := pdm.getLockPath(projectName)
+	data, err := os.ReadFile(lockPath)
+	if err != nil {
+		return false, nil, err
+	}
+
+	var lock Lock
+	if err := yaml.Unmarshal(data, &lock); err != nil {
+		return true, nil, nil // Corrupt lock is stale
+	}
+
+	// 1. Check TTL
+	if time.Now().After(lock.CreatedAt.Add(time.Duration(lock.TTL) * time.Second)) {
+		return true, &lock, nil
+	}
+
+	// 2. Best-effort PID check if on same host
+	host, _ := os.Hostname()
+	if lock.Host == host {
+		process, err := os.FindProcess(lock.PID)
+		if err != nil {
+			return true, &lock, nil
+		}
+		// On Unix, FindProcess always succeeds. Use signal 0 to check existence.
+		if runtime.GOOS != "windows" {
+			err = process.Signal(syscall.Signal(0))
+			if err != nil {
+				return true, &lock, nil
+			}
+		}
+	}
+
+	return false, &lock, nil
 }
 
 // LoadProjectData loads project data from disk with version migration
@@ -80,6 +183,11 @@ func (pdm *ProjectDataManager) LoadProjectData(projectName string) (*ProjectData
 
 // SaveProjectData saves project data to disk with version tracking
 func (pdm *ProjectDataManager) SaveProjectData(projectName string, projectData *ProjectData) error {
+	if err := pdm.AcquireLock(projectName, 300); err != nil {
+		return err
+	}
+	defer pdm.ReleaseLock(projectName)
+
 	projectPath := filepath.Join(pdm.dataDir, projectName)
 	tasksFile := filepath.Join(projectPath, "tasks.yaml")
 
@@ -168,6 +276,11 @@ func (pdm *ProjectDataManager) LoadProjectConfig(projectName string) (*ProjectCo
 
 // SaveProjectConfig saves project configuration to project.yml
 func (pdm *ProjectDataManager) SaveProjectConfig(projectName string, config *ProjectConfig) error {
+	if err := pdm.AcquireLock(projectName, 300); err != nil {
+		return err
+	}
+	defer pdm.ReleaseLock(projectName)
+
 	projectPath := filepath.Join(pdm.dataDir, projectName)
 	configFile := filepath.Join(projectPath, "project.yml")
 
