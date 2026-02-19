@@ -36,6 +36,47 @@ displays an interactive menu to select a task to complete.`,
 		versionManager := NewVersionManager(version)
 		projectManager := NewProjectDataManager(dataDir, versionManager)
 
+		// Try v1.1 first
+		if v11, err := projectManager.LoadProjectV11(targetProject); err == nil {
+			if len(args) == 0 {
+				return fmt.Errorf("task ID is required for v1.1 projects")
+			}
+			taskID := args[0]
+			found := false
+			for i := range v11.Tasks {
+				if v11.Tasks[i].ID == taskID {
+					if v11.Tasks[i].Status == "DONE" {
+						return fmt.Errorf("task %s is already completed", taskID)
+					}
+					prevStatus := v11.Tasks[i].Status
+					v11.Tasks[i].Status = "DONE"
+					v11.Tasks[i].UpdatedAt = time.Now()
+					
+					// Emit event
+					v11.Events = append(v11.Events, Event{
+						Timestamp:  time.Now(),
+						Type:       "TASK_STATUS_CHANGED",
+						Actor:      "human",
+						TaskID:     taskID,
+						PrevStatus: prevStatus,
+						NextStatus: "DONE",
+						Message:    "Task marked as completed",
+					})
+
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("task %s not found", taskID)
+			}
+			if err := projectManager.SaveProjectV11(targetProject, v11); err != nil {
+				return fmt.Errorf("failed to save project v1.1: %w", err)
+			}
+			fmt.Printf("Completed task: %s (v1.1)\n", taskID)
+			return nil
+		}
+
 		projectData, err := projectManager.LoadProjectData(targetProject)
 		if err != nil {
 			return fmt.Errorf("failed to load project data: %w", err)

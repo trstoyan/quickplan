@@ -203,6 +203,96 @@ func (pdm *ProjectDataManager) IsLockStale(projectName string) (bool, *Lock, err
 	return false, &lock, nil
 }
 
+// LoadProjectV11 loads a schema v1.1 project file
+func (pdm *ProjectDataManager) LoadProjectV11(projectName string) (*ProjectV11, error) {
+	projectPath := filepath.Join(pdm.dataDir, projectName)
+	v11File := filepath.Join(projectPath, "project.yaml")
+
+	data, err := os.ReadFile(v11File)
+	if err != nil {
+		return nil, err
+	}
+
+	var project ProjectV11
+	if err := yaml.Unmarshal(data, &project); err != nil {
+		return nil, fmt.Errorf("failed to parse project.yaml: %w", err)
+	}
+
+	if project.SchemaVersion != "1.1" {
+		return nil, fmt.Errorf("unsupported schema version: %s", project.SchemaVersion)
+	}
+
+	return &project, nil
+}
+
+// SaveProjectV11 saves a schema v1.1 project file
+func (pdm *ProjectDataManager) SaveProjectV11(projectName string, project *ProjectV11) error {
+	if err := pdm.AcquireLock(projectName, 300); err != nil {
+		return err
+	}
+	defer pdm.ReleaseLock(projectName)
+
+	projectPath := filepath.Join(pdm.dataDir, projectName)
+	v11File := filepath.Join(projectPath, "project.yaml")
+
+	project.Project.UpdatedAt = time.Now()
+
+	data, err := yaml.Marshal(project)
+	if err != nil {
+		return fmt.Errorf("failed to marshal project v1.1: %w", err)
+	}
+
+	return os.WriteFile(v11File, data, 0644)
+}
+
+// GetTaskViews returns a list of TaskViews for a project, supporting both legacy and v1.1
+func (pdm *ProjectDataManager) GetTaskViews(projectName string) ([]TaskView, bool, error) {
+	// Try v1.1 first
+	v11, err := pdm.LoadProjectV11(projectName)
+	if err == nil {
+		views := make([]TaskView, len(v11.Tasks))
+		for i, t := range v11.Tasks {
+			views[i] = TaskView{
+				ID:         t.ID,
+				Text:       t.Name,
+				Status:     t.Status,
+				AssignedTo: t.AssignedTo,
+				DependsOn:  t.DependsOn,
+				Behavior:   t.Behavior,
+				IsV11:      true,
+			}
+		}
+		return views, true, nil
+	}
+
+	// Fallback to legacy
+	legacy, err := pdm.LoadProjectData(projectName)
+	if err != nil {
+		return nil, false, err
+	}
+
+	views := make([]TaskView, len(legacy.Tasks))
+	for i, t := range legacy.Tasks {
+		// Map int deps to strings
+		deps := make([]string, len(t.DependsOn))
+		for j, d := range t.DependsOn {
+			deps[j] = fmt.Sprintf("t-%d", d)
+		}
+
+		views[i] = TaskView{
+			ID:         fmt.Sprintf("t-%d", t.ID),
+			Text:       t.Text,
+			Status:     GetTaskStatus(t),
+			AssignedTo: t.AssignedTo,
+			DependsOn:  deps,
+			WatchPath:  t.WatchPath,
+			Behavior:   t.Behavior,
+			IsV11:      false,
+		}
+	}
+	return views, false, nil
+}
+
 // LoadProjectData loads project data from disk with version migration
 func (pdm *ProjectDataManager) LoadProjectData(projectName string) (*ProjectData, error) {
 	projectPath := filepath.Join(pdm.dataDir, projectName)

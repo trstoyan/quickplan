@@ -37,6 +37,47 @@ adds the task to that project instead of the current context project.`,
 			versionManager := NewVersionManager(version)
 			projectManager := NewProjectDataManager(dataDir, versionManager)
 
+			// Try v1.1 first
+			if v11, err := projectManager.LoadProjectV11(targetProject); err == nil {
+				// Parse flags
+				assignedTo, _ := cmd.Flags().GetString("assigned-to")
+				dependsOnRaw, _ := cmd.Flags().GetIntSlice("depends-on")
+				role, _ := cmd.Flags().GetString("role")
+				lifecycle, _ := cmd.Flags().GetString("lifecycle")
+				strategy, _ := cmd.Flags().GetString("strategy")
+				watchPath, _ := cmd.Flags().GetString("watch-path")
+
+				// Map depends_on
+				deps := make([]string, len(dependsOnRaw))
+				for i, d := range dependsOnRaw {
+					deps[i] = fmt.Sprintf("t-%d", d)
+				}
+
+				// Generate ID (find max)
+				newTask := TaskV11{
+					ID:         fmt.Sprintf("t-%d", len(v11.Tasks)+1), // simple for now
+					Name:       taskText,
+					Status:     "PENDING",
+					AssignedTo: assignedTo,
+					DependsOn:  deps,
+					Behavior: AgentBehavior{
+						Role:      role,
+						LifeCycle: lifecycle,
+						Strategy:  strategy,
+					},
+					Watch: WatchConfig{
+						Paths: []string{watchPath},
+					},
+					UpdatedAt: time.Now(),
+				}
+				v11.Tasks = append(v11.Tasks, newTask)
+				if err := projectManager.SaveProjectV11(targetProject, v11); err != nil {
+					return fmt.Errorf("failed to save project v1.1: %w", err)
+				}
+				fmt.Printf("Added task to project '%s' (v1.1): %s\n", targetProject, taskText)
+				return nil
+			}
+
 			projectData, err := projectManager.LoadProjectData(targetProject)
 			if err != nil {
 				return fmt.Errorf("failed to load project data: %w", err)

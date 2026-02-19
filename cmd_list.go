@@ -60,92 +60,72 @@ func listProjectTasks(targetProject string, showAll bool) error {
 	versionManager := NewVersionManager(version)
 	projectManager := NewProjectDataManager(dataDir, versionManager)
 
-	projectData, err := projectManager.LoadProjectData(targetProject)
+	taskViews, isV11, err := projectManager.GetTaskViews(targetProject)
 	if err != nil {
-		return fmt.Errorf("failed to load project data: %w", err)
+		return fmt.Errorf("failed to load project: %w", err)
 	}
 	
 	fmt.Printf("Tasks in project '%s':\n", targetProject)
-	if projectData.Archived {
-		fmt.Println("  [ARCHIVED]")
+	// We might need to load metadata for archived status if not in TaskView
+	if !isV11 {
+		legacy, _ := projectManager.LoadProjectData(targetProject)
+		if legacy.Archived {
+			fmt.Println("  [ARCHIVED]")
+		}
 	}
 	fmt.Println()
 	
-	if len(projectData.Tasks) == 0 {
+	if len(taskViews) == 0 {
 		fmt.Println("  No tasks yet. Add one with 'quickplan add <task>'")
 		return nil
 	}
 	
 	// Separate incomplete and completed tasks
-	var incompleteTasks []Task
-	var completedTasks []Task
+	var incompleteTasks []TaskView
+	var completedTasks []TaskView
 	
-	for _, task := range projectData.Tasks {
-		if task.Done {
+	for _, task := range taskViews {
+		if task.Status == "DONE" {
 			completedTasks = append(completedTasks, task)
 		} else {
 			incompleteTasks = append(incompleteTasks, task)
 		}
 	}
 	
-	// Sort completed tasks by completion date (latest first)
-	sort.Slice(completedTasks, func(i, j int) bool {
-		if completedTasks[i].Completed == nil {
-			return false
-		}
-		if completedTasks[j].Completed == nil {
-			return true
-		}
-		return completedTasks[i].Completed.After(*completedTasks[j].Completed)
-	})
-	
-	// Limit completed tasks to latest 5 if not showing all
-	var displayCompletedTasks []Task
-	if showAll {
-		displayCompletedTasks = completedTasks
-	} else {
-		maxCompleted := 5
-		if len(completedTasks) > maxCompleted {
-			displayCompletedTasks = completedTasks[:maxCompleted]
-		} else {
-			displayCompletedTasks = completedTasks
-		}
-	}
+	// Sort completed tasks (placeholder for stable ID sorting or date if available in TaskView)
 	
 	// Display incomplete tasks
 	if len(incompleteTasks) > 0 {
 		for _, task := range incompleteTasks {
-			fmt.Printf("  %d. [ ] %s\n", task.ID, task.Text)
+			fmt.Printf("  %s. [%s] %s\n", task.ID, getStatusIcon(task.Status), task.Text)
 		}
 	}
 	
 	// Display completed tasks in a separate block
-	if len(displayCompletedTasks) > 0 {
+	if len(completedTasks) > 0 {
 		if len(incompleteTasks) > 0 {
 			fmt.Println()
 		}
 		fmt.Println("Completed tasks:")
-		for _, task := range displayCompletedTasks {
-			completedDate := "unknown date"
-			if task.Completed != nil {
-				completedDate = task.Completed.Format("2006-01-02")
-			}
-			fmt.Printf("  %d. [✓] %s (completed: %s)\n", task.ID, task.Text, completedDate)
+		for _, task := range completedTasks {
+			fmt.Printf("  %s. [✓] %s\n", task.ID, task.Text)
 		}
-		
-		// Show message if there are more completed tasks
-		if !showAll && len(completedTasks) > 5 {
-			remaining := len(completedTasks) - 5
-			fmt.Printf("  ... and %d more completed task(s). Use --all to see all.\n", remaining)
-		}
-	}
-	
-	// Show message if no tasks at all
-	if len(incompleteTasks) == 0 && len(displayCompletedTasks) == 0 {
-		fmt.Println("  No tasks yet. Add one with 'quickplan add <task>'")
 	}
 	
 	return nil
+}
+
+func getStatusIcon(status string) string {
+	switch status {
+	case "DONE":
+		return "✓"
+	case "BLOCKED":
+		return "B"
+	case "IN_PROGRESS":
+		return ">"
+	default:
+		return " "
+	}
 }
 
 // listAllProjects displays tasks from all projects
