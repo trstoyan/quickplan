@@ -130,13 +130,13 @@ If --project flag is provided, deletes from that project instead of the current 
 			// Update depends_on references in remaining tasks
 			for i := range projectData.Tasks {
 				newDependsOn := []int{}
-				removedAny := false
+				removedIDs := []int{}
 				for _, depID := range projectData.Tasks[i].DependsOn {
 					isDeleted := false
 					for _, deletedID := range taskIDs {
 						if depID == deletedID {
 							isDeleted = true
-							removedAny = true
+							removedIDs = append(removedIDs, deletedID)
 							break
 						}
 					}
@@ -144,12 +144,14 @@ If --project flag is provided, deletes from that project instead of the current 
 						newDependsOn = append(newDependsOn, depID)
 					}
 				}
-				if removedAny {
+				if len(removedIDs) > 0 {
 					projectData.Tasks[i].DependsOn = newDependsOn
-					projectData.Tasks[i].Notes = append(projectData.Tasks[i].Notes, NoteEntry{
-						Text:      "System: One or more dependencies were removed because the referenced tasks were deleted.",
-						Timestamp: time.Now(),
-					})
+					for _, rid := range removedIDs {
+						projectData.Tasks[i].Notes = append(projectData.Tasks[i].Notes, NoteEntry{
+							Text:      fmt.Sprintf("Dependency removed: %d (task deleted)", rid),
+							Timestamp: time.Now(),
+						})
+					}
 				}
 			}
 
