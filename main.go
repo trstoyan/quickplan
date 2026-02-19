@@ -46,6 +46,7 @@ func init() {
 	rootCmd.AddCommand(lockCmd)
 	rootCmd.AddCommand(unlockCmd)
 	rootCmd.AddCommand(eventsCmd)
+	rootCmd.AddCommand(migrateCmd)
 }
 
 // Get the data directory for storing projects and tasks
