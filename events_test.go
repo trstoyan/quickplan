@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestAppendEvent(t *testing.T) {
@@ -63,6 +65,55 @@ func TestAppendEvent(t *testing.T) {
 
 	if eventLog.Events[1].NextStatus != "DONE" {
 		t.Errorf("Expected second event next status DONE, got %s", eventLog.Events[1].NextStatus)
+	}
+}
+
+func TestAppendEventV11(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "quickplan-events-v11-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	projectName := "v11-events"
+	projectPath := filepath.Join(tmpDir, projectName)
+	os.MkdirAll(projectPath, 0755)
+
+	// Create v1.1 project.yaml
+	v11 := ProjectV11{
+		SchemaVersion: "1.1",
+		Project: ProjectMeta{Name: "v11"},
+		Tasks: []TaskV11{},
+		Events: []Event{},
+	}
+	data, _ := yaml.Marshal(v11)
+	os.WriteFile(filepath.Join(projectPath, "project.yaml"), data, 0644)
+
+	pdm := NewProjectDataManager(tmpDir, NewVersionManager("0.1.0"))
+
+	// Append event
+	event := Event{
+		Timestamp: time.Now().Round(time.Second),
+		Type:      "TEST_EVENT",
+		Actor:     "test",
+	}
+	err = pdm.AppendEvent(projectName, event)
+	if err != nil {
+		t.Fatalf("Failed to append event to v1.1: %v", err)
+	}
+
+	// Verify project.yaml contains the event
+	reloaded, _ := pdm.LoadProjectV11(projectName)
+	if len(reloaded.Events) != 1 {
+		t.Errorf("Expected 1 embedded event, got %d", len(reloaded.Events))
+	}
+	if reloaded.Events[0].Type != "TEST_EVENT" {
+		t.Errorf("Expected TEST_EVENT, got %s", reloaded.Events[0].Type)
+	}
+
+	// Verify events.yaml sidecar does NOT exist
+	if _, err := os.Stat(filepath.Join(projectPath, "events.yaml")); err == nil {
+		t.Error("events.yaml sidecar should not be created for v1.1 projects")
 	}
 }
 

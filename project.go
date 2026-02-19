@@ -50,12 +50,25 @@ func GetTaskStatus(task Task) string {
 	return "PENDING"
 }
 
-// AppendEvent appends an event to the events.yaml sidecar
+// AppendEvent appends an event to the project audit trail.
 func (pdm *ProjectDataManager) AppendEvent(projectName string, event Event) error {
+	projectPath := filepath.Join(pdm.dataDir, projectName)
+	v11File := filepath.Join(projectPath, "project.yaml")
+
+	// Try v1.1 embedding first
+	if _, err := os.Stat(v11File); err == nil {
+		v11, err := pdm.LoadProjectV11(projectName)
+		if err != nil {
+			return fmt.Errorf("failed to load v1.1 for event append: %w", err)
+		}
+		v11.Events = append(v11.Events, event)
+		return pdm.SaveProjectV11(projectName, v11)
+	}
+
+	// Fallback to events.yaml sidecar
 	eventsPath := pdm.getEventsPath(projectName)
 
 	// Ensure project directory exists
-	projectPath := filepath.Join(pdm.dataDir, projectName)
 	if _, err := os.Stat(projectPath); os.IsNotExist(err) {
 		return fmt.Errorf("project '%s' does not exist", projectName)
 	}
