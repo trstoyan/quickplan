@@ -63,6 +63,9 @@ displays an interactive menu to select a task to complete.`,
 						Message:    "Task marked as completed",
 					})
 
+					// Emit pulse
+					SendPulse(targetProject, "human", taskID, "DONE", prevStatus)
+
 					found = true
 					break
 				}
@@ -197,6 +200,9 @@ displays an interactive menu to select a task to complete.`,
 			NextStatus: "DONE",
 			Message:    "Task marked as completed",
 		})
+
+		// Emit pulse
+		SendPulse(targetProject, "human", taskToComplete.ID, "DONE", prevStatus)
 
 		fmt.Printf("Completed task: %s\n", taskToComplete.Text)
 		return nil

@@ -74,6 +74,10 @@ adds the task to that project instead of the current context project.`,
 				if err := projectManager.SaveProjectV11(targetProject, v11); err != nil {
 					return fmt.Errorf("failed to save project v1.1: %w", err)
 				}
+
+				// Emit pulse
+				SendPulse(targetProject, "human", newTask.ID, "PENDING", "")
+
 				fmt.Printf("Added task to project '%s' (v1.1): %s\n", targetProject, taskText)
 				return nil
 			}
@@ -130,6 +134,9 @@ adds the task to that project instead of the current context project.`,
 				NextStatus: "PENDING",
 				Message:    fmt.Sprintf("Task created: %s", taskText),
 			})
+
+			// Emit pulse
+			SendPulse(targetProject, "human", newTask.ID, "PENDING", "")
 
 			fmt.Printf("Added task to project '%s': %s\n", targetProject, taskText)
 			return nil

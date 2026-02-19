@@ -10,24 +10,26 @@ import (
 )
 
 // SendPulse sends a status update to the local web server dashboard
-func SendPulse(project, agentID string, taskID int, status string) {
+func SendPulse(project, agentID string, taskID interface{}, status, prevStatus string) {
 	pulseURL := os.Getenv("QUICKPLAN_WEB_URL")
 	if pulseURL == "" {
 		pulseURL = "http://localhost:8080"
 	}
 
 	pulse := struct {
-		Project   string `json:"project"`
-		AgentID   string `json:"agent_id"`
-		TaskID    int    `json:"task_id"`
-		Status    string `json:"status"`
-		Timestamp string `json:"timestamp"`
+		Project    string      `json:"project"`
+		AgentID    string      `json:"agent_id"`
+		TaskID     interface{} `json:"task_id"`
+		Status     string      `json:"status"`
+		PrevStatus string      `json:"prev_status,omitempty"`
+		Timestamp  string      `json:"timestamp"`
 	}{
-		Project:   project,
-		AgentID:   agentID,
-		TaskID:    taskID,
-		Status:    status,
-		Timestamp: time.Now().Format(time.RFC3339),
+		Project:    project,
+		AgentID:    agentID,
+		TaskID:     taskID,
+		Status:     status,
+		PrevStatus: prevStatus,
+		Timestamp:  time.Now().Format(time.RFC3339),
 	}
 
 	data, err := json.Marshal(pulse)
