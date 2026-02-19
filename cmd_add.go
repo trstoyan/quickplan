@@ -42,13 +42,36 @@ adds the task to that project instead of the current context project.`,
 				return fmt.Errorf("failed to load project data: %w", err)
 			}
 
+			// Parse flags
+			assignedTo, _ := cmd.Flags().GetString("assigned-to")
+			dependsOnRaw, _ := cmd.Flags().GetIntSlice("depends-on")
+			role, _ := cmd.Flags().GetString("role")
+			lifecycle, _ := cmd.Flags().GetString("lifecycle")
+			strategy, _ := cmd.Flags().GetString("strategy")
+			watchPath, _ := cmd.Flags().GetString("watch-path")
+
 			// Add new task
+			maxID := 0
+			for _, t := range projectData.Tasks {
+				if t.ID > maxID {
+					maxID = t.ID
+				}
+			}
+
 			newTask := Task{
-				ID:        len(projectData.Tasks) + 1,
+				ID:        maxID + 1,
 				Text:      taskText,
 				Done:      false,
 				Created:   time.Now(),
 				Completed: nil,
+				AssignedTo: assignedTo,
+				DependsOn:  dependsOnRaw,
+				Behavior: AgentBehavior{
+					Role:      role,
+					LifeCycle: lifecycle,
+					Strategy:  strategy,
+				},
+				WatchPath: watchPath,
 			}
 			projectData.Tasks = append(projectData.Tasks, newTask)
 
@@ -65,4 +88,10 @@ adds the task to that project instead of the current context project.`,
 
 func init() {
 	addCmd.Flags().StringP("project", "p", "", "Add task to this project instead of current")
+	addCmd.Flags().String("assigned-to", "", "Assign task to agent or user")
+	addCmd.Flags().IntSlice("depends-on", []int{}, "Comma-separated list of task IDs this task depends on")
+	addCmd.Flags().String("role", "", "Role for the agent behavior")
+	addCmd.Flags().String("lifecycle", "", "Lifecycle for the agent behavior (e.g., Atomic, Infinite)")
+	addCmd.Flags().String("strategy", "", "Strategy for the agent behavior (e.g., TDD, Fast Prototype)")
+	addCmd.Flags().String("watch-path", "", "Physical file path to watch for dependency verification")
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -115,6 +116,32 @@ If --project flag is provided, deletes from that project instead of the current 
 				projectData.Tasks = append(projectData.Tasks[:idx], projectData.Tasks[idx+1:]...)
 			}
 
+			// Update depends_on references in remaining tasks
+			for i := range projectData.Tasks {
+				newDependsOn := []int{}
+				removedAny := false
+				for _, depID := range projectData.Tasks[i].DependsOn {
+					isDeleted := false
+					for _, deletedID := range taskIDs {
+						if depID == deletedID {
+							isDeleted = true
+							removedAny = true
+							break
+						}
+					}
+					if !isDeleted {
+						newDependsOn = append(newDependsOn, depID)
+					}
+				}
+				if removedAny {
+					projectData.Tasks[i].DependsOn = newDependsOn
+					projectData.Tasks[i].Notes = append(projectData.Tasks[i].Notes, NoteEntry{
+						Text:      "System: One or more dependencies were removed because the referenced tasks were deleted.",
+						Timestamp: time.Now(),
+					})
+				}
+			}
+
 			// Save backup for undo
 			undoData := struct {
 				ProjectName string      `yaml:"project_name"`
@@ -127,9 +154,6 @@ If --project flag is provided, deletes from that project instead of the current 
 			if undoBytes, err := yaml.Marshal(undoData); err == nil {
 				os.WriteFile(undoBackupPath, undoBytes, 0644)
 			}
-
-			// Renumber tasks to maintain sequential IDs
-			renumberTasks(projectData.Tasks)
 
 			// Save updated project data
 			if err := projectManager.SaveProjectData(targetProject, projectData); err != nil {
@@ -186,14 +210,6 @@ func confirmDeletions(tasks []Task) (bool, error) {
 	}
 
 	return confirmed, nil
-}
-
-// renumberTasks renumbers task IDs to be sequential starting from 1
-// Following Single Responsibility Principle - handles only ID renumbering
-func renumberTasks(tasks []Task) {
-	for i := range tasks {
-		tasks[i].ID = i + 1
-	}
 }
 
 // getTargetProject determines the target project from flags or current context

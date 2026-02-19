@@ -4,26 +4,6 @@ import (
 	"testing"
 )
 
-func TestRenumberTasks(t *testing.T) {
-	tasks := []Task{
-		{ID: 5, Text: "Task A"},
-		{ID: 10, Text: "Task B"},
-		{ID: 1, Text: "Task C"},
-	}
-
-	renumberTasks(tasks)
-
-	if tasks[0].ID != 1 {
-		t.Errorf("expected task 0 ID to be 1, got %d", tasks[0].ID)
-	}
-	if tasks[1].ID != 2 {
-		t.Errorf("expected task 1 ID to be 2, got %d", tasks[1].ID)
-	}
-	if tasks[2].ID != 3 {
-		t.Errorf("expected task 2 ID to be 3, got %d", tasks[2].ID)
-	}
-}
-
 func TestDeleteLogic(t *testing.T) {
 	// This test focuses on the core logic of identifying and removing tasks
 	// Similar to what's in cmd_delete.go
@@ -65,18 +45,11 @@ func TestDeleteLogic(t *testing.T) {
 		t.Fatalf("expected 2 tasks remaining, got %d", len(tasks))
 	}
 
-	if tasks[0].Text != "Task 2" {
-		t.Errorf("expected Task 2, got %s", tasks[0].Text)
+	if tasks[0].Text != "Task 2" || tasks[0].ID != 2 {
+		t.Errorf("expected Task 2 with ID 2, got %s with ID %d", tasks[0].Text, tasks[0].ID)
 	}
 
-	if tasks[1].Text != "Task 4" {
-		t.Errorf("expected Task 4, got %s", tasks[1].Text)
-	}
-
-	// Renumber
-	renumberTasks(tasks)
-
-	if tasks[0].ID != 1 || tasks[1].ID != 2 {
-		t.Errorf("renumbering failed")
+	if tasks[1].Text != "Task 4" || tasks[1].ID != 4 {
+		t.Errorf("expected Task 4 with ID 4, got %s with ID %d", tasks[1].Text, tasks[1].ID)
 	}
 }
