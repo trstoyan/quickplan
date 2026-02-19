@@ -135,6 +135,16 @@ func runSupervisor(projectName string) {
 					// 2. Inject into YAML
 					projectData.Tasks = append(projectData.Tasks, healTask)
 					projectManager.SaveProjectData(projectName, projectData)
+
+					// Emit event
+					projectManager.AppendEvent(projectName, Event{
+						Timestamp:  time.Now(),
+						Type:       "TASK_CREATED",
+						Actor:      "supervisor",
+						TaskID:     fmt.Sprintf("t-%d", healTask.ID),
+						NextStatus: "PENDING",
+						Message:    healTask.Text,
+					})
 					
 					fmt.Printf("🛡️ Supervisor: Injected Remedy Task %d into the plan.\n", healTask.ID)
 					

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -29,6 +30,81 @@ func NewProjectDataManager(dataDir string, versionManager *VersionManager) *Proj
 // getLockPath returns the path to the lock file for a project
 func (pdm *ProjectDataManager) getLockPath(projectName string) string {
 	return filepath.Join(pdm.dataDir, projectName, ".quickplan.lock")
+}
+
+// getEventsPath returns the path to the events file for a project
+func (pdm *ProjectDataManager) getEventsPath(projectName string) string {
+	return filepath.Join(pdm.dataDir, projectName, "events.yaml")
+}
+
+// GetTaskStatus returns the status string for a legacy task
+func GetTaskStatus(task Task) string {
+	if task.Done {
+		return "DONE"
+	}
+	for _, note := range task.Notes {
+		if strings.Contains(strings.ToUpper(note.Text), "BLOCKED") {
+			return "BLOCKED"
+		}
+	}
+	return "PENDING"
+}
+
+// AppendEvent appends an event to the events.yaml sidecar
+func (pdm *ProjectDataManager) AppendEvent(projectName string, event Event) error {
+	eventsPath := pdm.getEventsPath(projectName)
+
+	// Ensure project directory exists
+	projectPath := filepath.Join(pdm.dataDir, projectName)
+	if _, err := os.Stat(projectPath); os.IsNotExist(err) {
+		return fmt.Errorf("project '%s' does not exist", projectName)
+	}
+
+	// Load existing events or create new log
+	var eventLog EventLog
+	data, err := os.ReadFile(eventsPath)
+	if err == nil {
+		if err := yaml.Unmarshal(data, &eventLog); err != nil {
+			// If corrupt, we'll just start fresh or return error?
+			// Protocol says append-only, so let's try to preserve if possible.
+			return fmt.Errorf("failed to parse events file: %w", err)
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to read events file: %w", err)
+	}
+
+	if eventLog.SchemaVersion == "" {
+		eventLog.SchemaVersion = "events-0.1"
+	}
+
+	eventLog.Events = append(eventLog.Events, event)
+
+	// Marshal and write
+	out, err := yaml.Marshal(eventLog)
+	if err != nil {
+		return fmt.Errorf("failed to marshal events: %w", err)
+	}
+
+	return os.WriteFile(eventsPath, out, 0644)
+}
+
+// LoadEvents loads the events from the events.yaml sidecar
+func (pdm *ProjectDataManager) LoadEvents(projectName string) (*EventLog, error) {
+	eventsPath := pdm.getEventsPath(projectName)
+	data, err := os.ReadFile(eventsPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &EventLog{SchemaVersion: "events-0.1", Events: []Event{}}, nil
+		}
+		return nil, fmt.Errorf("failed to read events file: %w", err)
+	}
+
+	var eventLog EventLog
+	if err := yaml.Unmarshal(data, &eventLog); err != nil {
+		return nil, fmt.Errorf("failed to parse events file: %w", err)
+	}
+
+	return &eventLog, nil
 }
 
 // AcquireLock attempts to acquire a lock for the project

@@ -116,6 +116,17 @@ If --project flag is provided, deletes from that project instead of the current 
 				projectData.Tasks = append(projectData.Tasks[:idx], projectData.Tasks[idx+1:]...)
 			}
 
+			// Emit events for deleted tasks
+			for _, deletedTask := range tasksToDelete {
+				projectManager.AppendEvent(targetProject, Event{
+					Timestamp: time.Now(),
+					Type:      "TASK_DELETED",
+					Actor:     "human",
+					TaskID:    fmt.Sprintf("t-%d", deletedTask.ID),
+					Message:   fmt.Sprintf("Task deleted: %s", deletedTask.Text),
+				})
+			}
+
 			// Update depends_on references in remaining tasks
 			for i := range projectData.Tasks {
 				newDependsOn := []int{}

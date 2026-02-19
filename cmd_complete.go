@@ -128,6 +128,7 @@ displays an interactive menu to select a task to complete.`,
 		}
 		
 		// Mark task as completed
+		prevStatus := GetTaskStatus(*taskToComplete)
 		taskToComplete.Done = true
 		now := time.Now()
 		taskToComplete.Completed = &now
@@ -144,6 +145,17 @@ displays an interactive menu to select a task to complete.`,
 		if err := projectManager.SaveProjectData(targetProject, projectData); err != nil {
 			return fmt.Errorf("failed to save project data: %w", err)
 		}
+
+		// Emit event
+		projectManager.AppendEvent(targetProject, Event{
+			Timestamp:  now,
+			Type:       "TASK_STATUS_CHANGED",
+			Actor:      "human",
+			TaskID:     fmt.Sprintf("t-%d", taskToComplete.ID),
+			PrevStatus: prevStatus,
+			NextStatus: "DONE",
+			Message:    "Task marked as completed",
+		})
 
 		fmt.Printf("Completed task: %s\n", taskToComplete.Text)
 		return nil

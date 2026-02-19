@@ -66,3 +66,20 @@ type Lock struct {
 	CreatedAt time.Time `yaml:"created_at"`
 	TTL       int       `yaml:"ttl_seconds"`
 }
+
+// Event represents a single event in the project lifecycle
+type Event struct {
+	Timestamp  time.Time `yaml:"ts"`
+	Type       string    `yaml:"type"`
+	Actor      string    `yaml:"actor"`
+	TaskID     string    `yaml:"task_id,omitempty"`
+	PrevStatus string    `yaml:"prev_status,omitempty"`
+	NextStatus string    `yaml:"next_status,omitempty"`
+	Message    string    `yaml:"message,omitempty"`
+}
+
+// EventLog represents the structure of the events.yaml sidecar
+type EventLog struct {
+	SchemaVersion string  `yaml:"schema_version"`
+	Events        []Event `yaml:"events"`
+}

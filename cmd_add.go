@@ -80,6 +80,16 @@ adds the task to that project instead of the current context project.`,
 				return fmt.Errorf("failed to save project data: %w", err)
 			}
 
+			// Emit event
+			projectManager.AppendEvent(targetProject, Event{
+				Timestamp:  time.Now(),
+				Type:       "TASK_CREATED",
+				Actor:      "human",
+				TaskID:     fmt.Sprintf("t-%d", newTask.ID),
+				NextStatus: "PENDING",
+				Message:    fmt.Sprintf("Task created: %s", taskText),
+			})
+
 			fmt.Printf("Added task to project '%s': %s\n", targetProject, taskText)
 			return nil
 		},
