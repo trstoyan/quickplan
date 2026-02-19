@@ -240,6 +240,10 @@ func (pdm *ProjectDataManager) LoadProjectV11(projectName string) (*ProjectV11, 
 
 // SaveProjectV11 saves a schema v1.1 project file
 func (pdm *ProjectDataManager) SaveProjectV11(projectName string, project *ProjectV11) error {
+	if err := ValidateProjectV11(project); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
+	}
+
 	if err := pdm.AcquireLock(projectName, 300); err != nil {
 		return err
 	}
@@ -256,6 +260,92 @@ func (pdm *ProjectDataManager) SaveProjectV11(projectName string, project *Proje
 	}
 
 	return os.WriteFile(v11File, data, 0644)
+}
+
+// ValidateProjectV11 enforces schema v1.1 rules and invariants.
+func ValidateProjectV11(project *ProjectV11) error {
+	if project.SchemaVersion != "1.1" {
+		return fmt.Errorf("unsupported schema version: %s (expected 1.1)", project.SchemaVersion)
+	}
+
+	taskIDs := make(map[string]bool)
+	for _, task := range project.Tasks {
+		// 1. Unique task ids
+		if task.ID == "" {
+			return fmt.Errorf("task ID cannot be empty")
+		}
+		if taskIDs[task.ID] {
+			return fmt.Errorf("duplicate task ID: %s", task.ID)
+		}
+		taskIDs[task.ID] = true
+
+		// 2. Valid status enum
+		if !isValidStatus(task.Status) {
+			return fmt.Errorf("invalid status for task %s: %s", task.ID, task.Status)
+		}
+	}
+
+	// 3. depends_on references exist and no cycles
+	for _, task := range project.Tasks {
+		for _, depID := range task.DependsOn {
+			if !taskIDs[depID] {
+				return fmt.Errorf("task %s depends on non-existent task %s", task.ID, depID)
+			}
+		}
+	}
+
+	if hasDependencyCycles(project.Tasks) {
+		return fmt.Errorf("dependency cycle detected")
+	}
+
+	return nil
+}
+
+func isValidStatus(status string) bool {
+	switch status {
+	case "PENDING", "BLOCKED", "IN_PROGRESS", "DONE", "FAILED", "RETRYING", "CANCELLED":
+		return true
+	}
+	return false
+}
+
+func hasDependencyCycles(tasks []TaskV11) bool {
+	visited := make(map[string]bool)
+	recStack := make(map[string]bool)
+	taskMap := make(map[string]TaskV11)
+
+	for _, task := range tasks {
+		taskMap[task.ID] = task
+	}
+
+	var check func(id string) bool
+	check = func(id string) bool {
+		visited[id] = true
+		recStack[id] = true
+
+		for _, depID := range taskMap[id].DependsOn {
+			if !visited[depID] {
+				if check(depID) {
+					return true
+				}
+			} else if recStack[depID] {
+				return true
+			}
+		}
+
+		recStack[id] = false
+		return false
+	}
+
+	for _, task := range tasks {
+		if !visited[task.ID] {
+			if check(task.ID) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // GetTaskViews returns a list of TaskViews for a project, supporting both legacy and v1.1

@@ -55,11 +55,15 @@ func TestMigrationV11(t *testing.T) {
 	}
 	for i, t := range lData.Tasks {
 		v11.Tasks[i] = TaskV11{
-			ID:   "t-1",
-			Name: t.Text,
+			ID:     "t-1",
+			Name:   t.Text,
+			Status: "PENDING",
 		}
 	}
-	pdm.SaveProjectV11(projectName, &v11)
+	err = pdm.SaveProjectV11(projectName, &v11)
+	if err != nil {
+		t.Fatalf("SaveProjectV11 failed: %v", err)
+	}
 
 	// Check after
 	if _, err := os.Stat(filepath.Join(projectPath, "project.yaml")); os.IsNotExist(err) {
