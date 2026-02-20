@@ -49,6 +49,10 @@ func init() {
 	rootCmd.AddCommand(migrateCmd)
 	rootCmd.AddCommand(doctorCmd)
 	rootCmd.AddCommand(statsCmd)
+	rootCmd.AddCommand(blueprintCmd)
+	rootCmd.AddCommand(pluginsCmd)
+	rootCmd.AddCommand(snapshotCmd)
+	rootCmd.AddCommand(monitorCmd)
 }
 
 // Get the data directory for storing projects and tasks

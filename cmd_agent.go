@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -60,7 +61,65 @@ var agentInitCmd = &cobra.Command{
 	},
 }
 
+var agentRunCmd = &cobra.Command{
+	Use:   "run [task_id]",
+	Short: "Execute the agent assigned to a task",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		taskIDStr := args[0]
+		projectName, _ := cmd.Flags().GetString("project")
+		if projectName == "" {
+			projectName, _ = getCurrentProject()
+		}
+
+		dataDir, _ := getDataDir()
+		projectManager := NewProjectDataManager(dataDir, NewVersionManager(version))
+		
+		views, _, err := projectManager.GetTaskViews(projectName)
+		if err != nil {
+			return err
+		}
+
+		var target *TaskView
+		for _, v := range views {
+			if v.ID == taskIDStr {
+				target = &v
+				break
+			}
+		}
+
+		if target == nil {
+			return fmt.Errorf("task %s not found", taskIDStr)
+		}
+
+		if strings.HasPrefix(target.AssignedTo, "plugin:") {
+			pluginName := strings.TrimPrefix(target.AssignedTo, "plugin:")
+			fmt.Printf("🔌 Executing plugin: %s\n", pluginName)
+			
+			req := PluginRequest{
+				TaskID:   target.ID,
+				Role:     target.Behavior.Role,
+				Strategy: target.Behavior.Strategy,
+			}
+			
+			resp, err := ExecutePlugin(pluginName, req)
+			if err != nil {
+				return err
+			}
+			
+			fmt.Printf("Plugin Result (%s): %s\n", resp.Status, resp.Message)
+			return nil
+		}
+
+		// Fallback: just output prompt
+		fmt.Println(GenerateSystemPrompt(nil, projectName)) // Need actual Task for proper prompt
+		return fmt.Errorf("no plugin assigned and automated LLM execution not configured for this task")
+	},
+}
+
 func init() {
 	agentCmd.AddCommand(agentInitCmd)
+	agentCmd.AddCommand(agentRunCmd)
 	agentInitCmd.Flags().StringP("project", "p", "", "Project name")
+	agentRunCmd.Flags().StringP("project", "p", "", "Project name")
 }
