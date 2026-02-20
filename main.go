@@ -57,6 +57,7 @@ func init() {
 	rootCmd.AddCommand(projectKeyCmd)
 	rootCmd.AddCommand(exportCmd)
 	rootCmd.AddCommand(importCmd)
+	rootCmd.AddCommand(aclCmd)
 }
 
 // Get the data directory for storing projects and tasks
