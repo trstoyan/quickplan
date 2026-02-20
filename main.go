@@ -54,6 +54,7 @@ func init() {
 	rootCmd.AddCommand(snapshotCmd)
 	rootCmd.AddCommand(monitorCmd)
 	rootCmd.AddCommand(keygenCmd)
+	rootCmd.AddCommand(projectKeyCmd)
 }
 
 // Get the data directory for storing projects and tasks
