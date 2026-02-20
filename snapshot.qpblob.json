@@ -1,0 +1,13 @@
+{
+  "header": {
+    "project_id": "1771590455834857968",
+    "rev_id": "1771590455834931830",
+    "alg": "aes-256-gcm+x25519+ed25519:v1",
+    "author_pubkey": "zspIMHjzdRvDWQvzGCmNCT3eT2YujK9Emv8fsiVB0E8=",
+    "created_at": "2026-02-20T14:27:35.834933089+02:00",
+    "ciphertext_hash": "5e5f1b60937a02ade32ec6abf02717a9880930346304a70894b2ac89f5ce1605"
+  },
+  "nonce_b64": "rmP5o6DIXsgwWXzq",
+  "ciphertext_b64": "HwRQII+23qM7fbdT62guARQQCAS138aMCQnJy/59WOg/3WmDJLBg2oKxom8mwNvb1swUoipU6Om5MTmSlQj/B7VLmozAEya+wrC5P8C3o96iXp7tzKhZZxudBkVRaE8DAxDbXnXl6On9WglaIBr0tuzWkrnZaMC91kVPwBj8suIz28rZ05rLsrB+Z7U3WMCxAv+3U9fBP1mwcQBQmNqc92HY",
+  "signature_b64": "ledOXFhxqaR/4ACGGW0us3yq6lugnSmfWyAlHCVLOJBm25Fprzp1vKdPHfG4qn+QdMJbcuvVkEvsBQxH+/x9DQ=="
+}

@@ -105,6 +105,8 @@ var exportCmd = &cobra.Command{
 		}
 
 		// 6. Encrypt
+		// CiphertextHash must be empty during AAD calculation as it is computed post-encryption
+		header.CiphertextHash = ""
 		headerJSON, err := json.Marshal(header)
 		if err != nil {
 			return err
