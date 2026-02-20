@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -101,59 +100,60 @@ func runSupervisor(projectName string) {
 	versionManager := NewVersionManager(version)
 	projectManager := NewProjectDataManager(dataDir, versionManager)
 
+	// Determine which file to watch
+	taskFile := filepath.Join(dataDir, projectName, "project.yaml")
+	if _, err := os.Stat(taskFile); os.IsNotExist(err) {
+		taskFile = filepath.Join(dataDir, projectName, "tasks.yaml")
+	}
+
+	fmt.Printf("🛡️ Supervisor: Watching %s for state transitions...\n", taskFile)
+
 	for {
-		projectData, err := projectManager.LoadProjectData(projectName)
+		views, _, err := projectManager.GetTaskViews(projectName)
 		if err == nil {
-			for _, task := range projectData.Tasks {
-				// Simple heuristic: if a task has a blocker note or is marked in a specific way
-				// In this protocol, we'll look for tasks that are not done and have "BLOCKED" in notes
-				isBlocked := false
-				var blockerReason string
-				for _, note := range task.Notes {
-					if strings.Contains(strings.ToUpper(note.Text), "BLOCKED") {
-						isBlocked = true
-						blockerReason = note.Text
-						break
+			for _, task := range views {
+				if task.Status == "BLOCKED" {
+					fmt.Printf("🛡️ Supervisor: Handling BLOCKED Task %s\n", task.ID)
+					
+					// 1. Generate Remedy
+					healTaskText := fmt.Sprintf("REMEDY: Resolve blocker in Task %s", task.ID)
+					
+					// 2. Inject (v1.1 or legacy handled by manager)
+					if task.IsV11 {
+						v11, _ := projectManager.LoadProjectV11(projectName)
+						v11.Tasks = append(v11.Tasks, TaskV11{
+							ID:     fmt.Sprintf("remedy-%d", time.Now().Unix()),
+							Name:   healTaskText,
+							Status: "PENDING",
+							Behavior: AgentBehavior{
+								Role: "Senior Troubleshooter",
+							},
+							UpdatedAt: time.Now(),
+						})
+						projectManager.SaveProjectV11(projectName, v11)
+					} else {
+						legacy, _ := projectManager.LoadProjectData(projectName)
+						maxID := 0
+						for _, t := range legacy.Tasks {
+							if t.ID > maxID { maxID = t.ID }
+						}
+						legacy.Tasks = append(legacy.Tasks, Task{
+							ID:      maxID + 1,
+							Text:    healTaskText,
+							Created: time.Now(),
+							Behavior: AgentBehavior{Role: "Senior Troubleshooter"},
+						})
+						projectManager.SaveProjectData(projectName, legacy)
 					}
-				}
-
-				if isBlocked && !task.Done {
-					fmt.Printf("🛡️ Supervisor: Detected blocker in Task %d: %s\n", task.ID, blockerReason)
-					
-					// Initialize Correction Agent logic
-					// 1. Generate a "Heal" task
-					healTask := Task{
-						ID:        len(projectData.Tasks) + 1,
-						Text:      fmt.Sprintf("REMEDY: Resolve blocker in Task %d: %s", task.ID, blockerReason),
-						Created:   time.Now(),
-						Behavior: AgentBehavior{
-							Role:     "Senior Troubleshooter",
-							Strategy: "Recursive Debugging",
-						},
-					}
-					
-					// 2. Inject into YAML
-					projectData.Tasks = append(projectData.Tasks, healTask)
-					projectManager.SaveProjectData(projectName, projectData)
-
-					// Emit event
-					projectManager.AppendEvent(projectName, Event{
-						Timestamp:  time.Now(),
-						Type:       "TASK_CREATED",
-						Actor:      "supervisor",
-						TaskID:     fmt.Sprintf("t-%d", healTask.ID),
-						NextStatus: "PENDING",
-						Message:    healTask.Text,
-					})
-					
-					fmt.Printf("🛡️ Supervisor: Injected Remedy Task %d into the plan.\n", healTask.ID)
-					
-					// To avoid infinite loops, we should mark the original task or note as "HANDLED"
-					// For now, we'll just sleep to poll
+					fmt.Printf("🛡️ Supervisor: Injected remedy for %s\n", task.ID)
 				}
 			}
 		}
-		time.Sleep(10 * time.Second)
+
+		// Wait for file change instead of fixed 10s sleep
+		exec.Command("inotifywait", "-q", "-e", "modify", taskFile).Run()
+		// Small cooldown to prevent rapid fire
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
