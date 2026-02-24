@@ -12,54 +12,50 @@ Clone the repo and build the CLI:
 ```bash
 git clone https://github.com/trstoyan/quickplan
 cd quick-plan-cli
-go build -o build/quickplan .
+make build
 export PATH=$PATH:$(pwd)/build
 ```
 
-Initialize your first project:
+Initialize your project:
 ```bash
-quickplan create my-swarm
+quickplan init my-swarm --interactive
 ```
 
-## 2. Define the Plan
-Add a few tasks with agent behaviors. We'll set up a dependency where Task 2 waits for Task 1.
+## 2. Configure the Registry
+Set your registry endpoint to the new persistent Go backend:
 ```bash
-quickplan add "Write the API schema" --role "Backend Architect" --strategy "REST"
-quickplan add "Generate Frontend types" --role "Frontend Lead" --depends-on 1 --watch-path "schema.graphql"
+export QUICKPLAN_REGISTRY_URL="https://registry.quickplan.sh"
 ```
 
-## 3. Spawn the Swarm
-Open **three new terminal windows** (or use tmux). We will assign two worker agents and one observer.
+## 3. Spawn the Swarm (The Easy Way)
+Instead of manual terminal windows, use the built-in orchestrator:
 
-**Terminal 2 (Agent Alpha):**
 ```bash
-./scripts/qp-loop.sh my-swarm alpha
+quickplan swarm start --workers 3
 ```
 
-**Terminal 3 (Agent Beta):**
+The CLI will:
+1. Extract the `qp-loop.sh` worker logic.
+2. Initialize the background agent pool.
+3. Start the **Supervisor** to monitor for blocked tasks.
+
+## 4. Advanced: Sandboxed Execution
+If you have **Daytona** installed, you can run tasks in isolated environments:
+
 ```bash
-./scripts/qp-loop.sh my-swarm beta
+# In your project.yaml
+tasks:
+  - name: "Build secure kernel module"
+    behavior:
+      environment:
+        provider: daytona
+        image: debian:latest
 ```
 
-**Terminal 4 (The Master Observer):**
-```bash
-watch -n 1 quickplan list --project my-swarm
-```
-
-## 4. Dispatch and Execute
-In your main terminal, send the first task to Alpha:
-```bash
-echo "1" > /tmp/qp_bridge_alpha
-```
-
-**What happens next?**
-1. **Alpha** wakes up, sees the task, and simulates the work (saving `schema.graphql`).
-2. **Alpha** updates the task to `DONE`.
-3. **Beta**'s `inotify` reflex triggers. It scans the plan, sees that Task 1 is `DONE` and `schema.graphql` exists.
-4. **Beta** begins working on Task 2 automatically.
+When the worker picks up this task, it will automatically spin up a Daytona workspace, execute the command, and tear it down.
 
 ## 5. Sync to the Hive
-Ready to share your blueprint?
+Ready to share your signed blueprint?
 ```bash
 quickplan sync push --project my-swarm
 ```

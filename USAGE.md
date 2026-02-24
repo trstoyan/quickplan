@@ -144,35 +144,55 @@ All data is stored in `~/.local/share/quickplan/`:
     └── tasks.yaml        # Personal project tasks
 ```
 
+## M2M & Automation
+
+QuickPlan is designed for both human and machine consumption.
+
+### Machine-to-Machine (M2M) Output
+All commands support a global `--json` flag for structured output.
+
+```bash
+# Get project list as JSON
+quickplan projects --json
+
+# Add a task and get the JSON response
+quickplan add "Deploy to prod" --json
+```
+
+### Non-Interactive Mode
+Bypass UI prompts for automated bootstrapping.
+
+```bash
+# Initialize a project without a wizard
+quickplan init my-new-project --non-interactive
+```
+
+## Sandboxed Compute (v0.3.0)
+
+QuickPlan supports isolated execution environments using the Runner interface.
+
+### Daytona Integration
+Run your agents in ephemeral, isolated cloud sandboxes.
+
+**Configuration (`project.yaml`):**
+```yaml
+tasks:
+  - id: t-101
+    name: "Run security audit"
+    behavior:
+      environment:
+        provider: daytona
+        image: golang:1.22
+```
+
+**Workflow:**
+1. The Orchestrator detects the `daytona` provider.
+2. It calls the Daytona CLI to create a workspace.
+3. The task is executed inside the sandbox.
+4. The workspace is destroyed upon completion (for `Atomic` lifecycles).
+
 ## Swarm Orchestration (v0.3.0)
 
-Automate your multi-agent workflow with the Swarm Orchestrator.
-
-### Initialization
-
-```bash
-# Interactive Wizard
-quickplan init --interactive
-```
-
-This will guide you through:
-1. Creating a project.
-2. Seeding initial tasks with agent roles.
-
-### Starting a Swarm
-
-```bash
-# Start 3 worker agents for the current project
-quickplan swarm start --workers 3
-
-# Start 5 workers for a specific project
-quickplan swarm start --workers 5 --project my-app
-```
-
-The orchestrator will:
-1. Extract the necessary execution scripts (`qp-loop.sh`).
-2. Spawn background processes for each worker.
-3. Agents will automatically pick up tasks assigned to them or broadcast to the swarm.
 
 ## Installation
 
