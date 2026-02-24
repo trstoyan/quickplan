@@ -1,5 +1,7 @@
 # QuickPlan CLI
 
+[![Support the Project](https://img.shields.io/badge/Support-Buy%20Me%20A%20Coffee-yellow.svg)](https://buymeacoffee.com/trstoyan)
+
 A fast, lightweight CLI task manager for Linux with project support and vim-inspired selection menus.
 
 ## Features
