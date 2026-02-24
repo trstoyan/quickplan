@@ -38,7 +38,7 @@ func ExtractScripts() (string, error) {
 		if err := os.WriteFile(destPath, content, 0755); err != nil {
 			return fmt.Errorf("failed to write script %s: %w", destPath, err)
 		}
-		
+
 		return nil
 	})
 

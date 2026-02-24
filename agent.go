@@ -63,11 +63,11 @@ func GenerateSystemPrompt(t *Task, projectName string) string {
 	prompt += fmt.Sprintf("Your current lifecycle is %s.\n", lifecycle)
 	prompt += fmt.Sprintf("Your task is: %s (ID: %d)\n", t.Text, t.ID)
 	prompt += fmt.Sprintf("Strategy: %s\n", strategy)
-	
+
 	if len(t.DependsOn) > 0 {
 		prompt += fmt.Sprintf("This task depends on tasks: %v\n", t.DependsOn)
 	}
-	
+
 	if t.WatchPath != "" {
 		prompt += fmt.Sprintf("Verified environment dependency: %s\n", t.WatchPath)
 	}

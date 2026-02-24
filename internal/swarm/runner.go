@@ -1,9 +1,14 @@
-package main
+package swarm
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/daytonaio/daytona/libs/sdk-go/pkg/daytona"
+	"github.com/daytonaio/daytona/libs/sdk-go/pkg/types"
 )
 
 // Runner defines the interface for isolated task execution environments
@@ -18,15 +23,34 @@ type LocalRunner struct {
 	ScriptPath string
 	Project    string
 	AgentID    string
+	Workspace  string
 }
 
 func (r *LocalRunner) Setup(task *TaskView) error {
-	// Local setup usually involves ensuring the qp-loop.sh exists (handled by ExtractScripts)
+	taskID := "default"
+	if task != nil && task.ID != "" {
+		taskID = task.ID
+	}
+
+	workspace := filepath.Join("/tmp/quickplan", fmt.Sprintf("task_%s", taskID))
+	if err := os.MkdirAll(workspace, 0755); err != nil {
+		return err
+	}
+	r.Workspace = workspace
 	return nil
 }
 
 func (r *LocalRunner) Execute(command string, task *TaskView) (string, error) {
+	if r.Workspace == "" {
+		if err := r.Setup(task); err != nil {
+			return "", err
+		}
+	}
+
 	cmd := exec.Command(filepath.Join(r.ScriptPath, "qp-loop.sh"), r.Project, r.AgentID)
+	cmd.Dir = r.Workspace
+	applyLocalSandbox(cmd, r.Workspace)
+
 	// For LocalRunner, qp-loop.sh currently handles the full loop.
 	// In v1.2, we might want to pipe the specific command/prompt here.
 	if err := cmd.Start(); err != nil {
@@ -36,58 +60,91 @@ func (r *LocalRunner) Execute(command string, task *TaskView) (string, error) {
 }
 
 func (r *LocalRunner) Teardown(task *TaskView) error {
-	return nil
+	if r.Workspace == "" {
+		return nil
+	}
+	return os.RemoveAll(r.Workspace)
 }
 
 // DaytonaRunner executes tasks in ephemeral sandboxes using Daytona
 type DaytonaRunner struct {
 	Project string
 	AgentID string
+	Client  *daytona.Client
+	Sandbox *daytona.Sandbox
 }
 
 func (r *DaytonaRunner) Setup(task *TaskView) error {
-	// Check if daytona is installed
-	if _, err := exec.LookPath("daytona"); err != nil {
-		return fmt.Errorf("Daytona provider requested but 'daytona' CLI not found in PATH")
+	client, err := daytona.NewClient()
+	if err != nil {
+		return fmt.Errorf("Daytona server unreachable or unauthenticated: %w", err)
+	}
+	if task == nil {
+		return fmt.Errorf("Daytona runner requires a task")
 	}
 
 	image := task.Behavior.Environment.Image
 	if image == "" {
-		image = "default" // Or a sane default for QuickPlan
+		image = "default"
 	}
 
 	workspaceName := fmt.Sprintf("qp-%s-%s", r.Project, r.AgentID)
 	fmt.Printf("🏗️ Daytona: Creating workspace %s with image %s...\n", workspaceName, image)
 
-	// Example: daytona create --name qp-project-worker-1 --image golang:1.22
-	cmd := exec.Command("daytona", "create", "--name", workspaceName, "--image", image)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("Daytona workspace creation failed: %v\nOutput: %s", err, string(output))
+	params := types.ImageParams{
+		SandboxBaseParams: types.SandboxBaseParams{Name: workspaceName},
+		Image:             image,
 	}
 
+	sandbox, err := client.Create(context.Background(), params)
+	if err != nil {
+		return fmt.Errorf("Daytona workspace creation failed: %w", err)
+	}
+
+	r.Client = client
+	r.Sandbox = sandbox
 	return nil
 }
 
 func (r *DaytonaRunner) Execute(command string, task *TaskView) (string, error) {
-	workspaceName := fmt.Sprintf("qp-%s-%s", r.Project, r.AgentID)
-	fmt.Printf("🚀 Daytona: Executing task %s in workspace %s...\n", task.ID, workspaceName)
-
-	// Example: daytona exec qp-project-worker-1 -- "go run main.go"
-	cmd := exec.Command("daytona", "exec", workspaceName, "--", "bash", "-c", command)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return string(output), fmt.Errorf("Daytona execution failed: %v", err)
+	if r.Sandbox == nil {
+		if err := r.Setup(task); err != nil {
+			return "", err
+		}
 	}
 
-	return string(output), nil
+	workspaceName := fmt.Sprintf("qp-%s-%s", r.Project, r.AgentID)
+	if task != nil {
+		fmt.Printf("🚀 Daytona: Executing task %s in workspace %s...\n", task.ID, workspaceName)
+	} else {
+		fmt.Printf("🚀 Daytona: Executing task in workspace %s...\n", workspaceName)
+	}
+
+	response, err := r.Sandbox.Process.ExecuteCommand(context.Background(), command)
+	if err != nil {
+		return "", fmt.Errorf("Daytona execution failed: %w", err)
+	}
+	if response.ExitCode != 0 {
+		return response.Result, fmt.Errorf("Daytona execution failed: exit code %d", response.ExitCode)
+	}
+
+	return response.Result, nil
 }
 
 func (r *DaytonaRunner) Teardown(task *TaskView) error {
+	if r.Sandbox == nil {
+		return nil
+	}
+
 	workspaceName := fmt.Sprintf("qp-%s-%s", r.Project, r.AgentID)
 	fmt.Printf("🧹 Daytona: Destroying workspace %s...\n", workspaceName)
 
-	cmd := exec.Command("daytona", "delete", workspaceName, "--force")
-	return cmd.Run()
+	if err := r.Sandbox.Delete(context.Background()); err != nil {
+		return fmt.Errorf("Daytona workspace deletion failed: %w", err)
+	}
+	r.Sandbox = nil
+	r.Client = nil
+	return nil
 }
 
 // GetRunner returns the appropriate runner based on task behavior

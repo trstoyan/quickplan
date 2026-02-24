@@ -81,7 +81,7 @@ showing the number of incomplete tasks over time.`,
 			count := burndown[date]
 			fmt.Printf("%s | %s (%d)\n", date.Format("2006-01-02"), repeatChar('*', count), count)
 		}
-		
+
 		return nil
 	},
 }

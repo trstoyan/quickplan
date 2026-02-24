@@ -15,7 +15,7 @@ func TestDeleteLogic(t *testing.T) {
 	}
 
 	idsToDelete := []int{1, 3}
-	
+
 	// Find indices to delete
 	var indicesToDelete []int
 	for _, id := range idsToDelete {

@@ -102,7 +102,7 @@ var verifyBlueprintCmd = &cobra.Command{
 func init() {
 	blueprintCmd.AddCommand(signCmd)
 	signCmd.Flags().StringP("key", "k", "", "Path to Ed25519 private key file")
-	
+
 	blueprintCmd.AddCommand(verifyBlueprintCmd)
 	verifyBlueprintCmd.Flags().String("signature", "", "Base64 signature")
 	verifyBlueprintCmd.Flags().String("public-key", "", "Base64 public key")

@@ -13,24 +13,24 @@ func TestSSEParsing(t *testing.T) {
 
 data: {"project":"p1", "agent_id":"a2", "task_id":"t2", "status":"FAILED"}
 `
-	
+
 	reader := bufio.NewReader(strings.NewReader(input))
-	
+
 	var count int
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			break
 		}
-		
+
 		line = strings.TrimSpace(line)
 		if line == "" || !strings.HasPrefix(line, "data:") {
 			continue
 		}
-		
+
 		count++
 	}
-	
+
 	if count != 2 {
 		t.Errorf("expected 2 pulses parsed, got %d", count)
 	}

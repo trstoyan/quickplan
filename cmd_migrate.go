@@ -79,7 +79,7 @@ var migrateV11Cmd = &cobra.Command{
 
 		for i, t := range legacyData.Tasks {
 			status := GetTaskStatus(t)
-			
+
 			deps := make([]string, len(t.DependsOn))
 			for j, d := range t.DependsOn {
 				deps[j] = fmt.Sprintf("t-%d", d)

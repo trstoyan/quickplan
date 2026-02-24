@@ -23,11 +23,11 @@ func NewIgnoreFilter() *IgnoreFilter {
 // getDefaultIgnorePatterns returns the default ignore patterns
 func getDefaultIgnorePatterns() []string {
 	return []string{
-		".git",           // Git repository directory
+		".git",             // Git repository directory
 		".current_project", // QuickPlan internal file (not a project directory)
-		".*",             // Hidden files/directories (starts with dot)
-		"node_modules",   // Node.js dependencies
-		"build",          // Build artifacts
+		".*",               // Hidden files/directories (starts with dot)
+		"node_modules",     // Node.js dependencies
+		"build",            // Build artifacts
 	}
 }
 

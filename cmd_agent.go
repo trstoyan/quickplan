@@ -18,7 +18,7 @@ var agentInitCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		taskIDStr := args[0]
-		
+
 		// Parse task ID
 		var taskID int
 		if _, err := fmt.Sscanf(taskIDStr, "%d", &taskID); err != nil {
@@ -74,7 +74,7 @@ var agentRunCmd = &cobra.Command{
 
 		dataDir, _ := getDataDir()
 		projectManager := NewProjectDataManager(dataDir, NewVersionManager(version))
-		
+
 		views, _, err := projectManager.GetTaskViews(projectName)
 		if err != nil {
 			return err
@@ -95,18 +95,18 @@ var agentRunCmd = &cobra.Command{
 		if strings.HasPrefix(target.AssignedTo, "plugin:") {
 			pluginName := strings.TrimPrefix(target.AssignedTo, "plugin:")
 			fmt.Printf("🔌 Executing plugin: %s\n", pluginName)
-			
+
 			req := PluginRequest{
 				TaskID:   target.ID,
 				Role:     target.Behavior.Role,
 				Strategy: target.Behavior.Strategy,
 			}
-			
+
 			resp, err := ExecutePlugin(pluginName, req)
 			if err != nil {
 				return err
 			}
-			
+
 			fmt.Printf("Plugin Result (%s): %s\n", resp.Status, resp.Message)
 			return nil
 		}

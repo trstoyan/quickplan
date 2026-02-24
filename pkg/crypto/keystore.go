@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	CryptoDir          = ".qp_crypto"
-	ProjectKeyFile     = "project.key.wrapped"
+	CryptoDir           = ".qp_crypto"
+	ProjectKeyFile      = "project.key.wrapped"
 	ProjectKeyNonceFile = "project.key.nonce"
 )
 
@@ -46,7 +46,7 @@ func InitProjectKey(projectDir string, userPub *ecdh.PublicKey, userPriv *ecdh.P
 // GetProjectKey unwraps the stored project key using the user's private key.
 func GetProjectKey(projectDir string, userPriv *ecdh.PrivateKey, userPub *ecdh.PublicKey) ([]byte, error) {
 	cryptoPath := filepath.Join(projectDir, CryptoDir)
-	
+
 	wrappedB64, err := os.ReadFile(filepath.Join(cryptoPath, ProjectKeyFile))
 	if err != nil {
 		return nil, fmt.Errorf("missing project key: %w", err)

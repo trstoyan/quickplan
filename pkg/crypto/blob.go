@@ -21,10 +21,10 @@ type RevisionHeader struct {
 
 // RevisionBlob is the portable container for an encrypted project.yaml.
 type RevisionBlob struct {
-	Header       RevisionHeader `json:"header"`
-	NonceB64     string         `json:"nonce_b64"`
+	Header        RevisionHeader `json:"header"`
+	NonceB64      string         `json:"nonce_b64"`
 	CiphertextB64 string         `json:"ciphertext_b64"`
-	SignatureB64 string         `json:"signature_b64"`
+	SignatureB64  string         `json:"signature_b64"`
 }
 
 // Sign signs the blob's header and ciphertext hash using the author's private key.

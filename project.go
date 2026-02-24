@@ -619,4 +619,3 @@ func (pdm *ProjectDataManager) createDefaultConfig(projectName string) (*Project
 
 	return config, nil
 }
-

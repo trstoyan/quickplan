@@ -26,7 +26,7 @@ var monitorCmd = &cobra.Command{
 		}
 
 		streamURL := fmt.Sprintf("%s/api/v1/pulse/stream", baseURL)
-		
+
 		fmt.Printf("📡 Connecting to monitor stream at %s...\n", streamURL)
 		if projectFilter != "" {
 			fmt.Printf("🎯 Filtering for project: %s\n", projectFilter)
@@ -45,7 +45,7 @@ var monitorCmd = &cobra.Command{
 		// Handle interrupt for clean exit
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		
+
 		go func() {
 			<-sigChan
 			fmt.Println("\n👋 Disconnecting from monitor...")

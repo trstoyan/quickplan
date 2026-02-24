@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/trstoyan/quickplan/internal/swarm"
 )
 
 // AgentRunner defines the interface for running agents
@@ -20,7 +21,7 @@ type BackgroundRunner struct{}
 
 // Start starts a worker agent using the appropriate runner
 func (br *BackgroundRunner) Start(project, agentID, scriptPath string, task *TaskView) error {
-	runner := GetRunner(project, agentID, scriptPath, task)
+	runner := swarm.GetRunner(project, agentID, scriptPath, task)
 
 	if err := runner.Setup(task); err != nil {
 		return fmt.Errorf("runner setup failed: %w", err)

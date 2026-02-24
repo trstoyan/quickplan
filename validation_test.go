@@ -25,7 +25,7 @@ func TestValidateProjectV11(t *testing.T) {
 			name: "unsupported schema version",
 			project: &ProjectV11{
 				SchemaVersion: "1.0",
-				Tasks: []TaskV11{},
+				Tasks:         []TaskV11{},
 			},
 			wantErr: true,
 		},

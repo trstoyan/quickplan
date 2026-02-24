@@ -13,7 +13,7 @@ import (
 func BenchmarkLoadProject100Tasks(b *testing.B) {
 	tmpDir, _ := os.MkdirTemp("", "bench-load-*")
 	defer os.RemoveAll(tmpDir)
-	
+
 	projectName := "bench-proj"
 	projectPath := filepath.Join(tmpDir, projectName)
 	os.MkdirAll(projectPath, 0755)
@@ -26,7 +26,7 @@ func BenchmarkLoadProject100Tasks(b *testing.B) {
 			Status: "PENDING",
 		}
 	}
-	
+
 	v11 := ProjectV11{
 		SchemaVersion: "1.1",
 		Tasks:         tasks,
@@ -48,16 +48,16 @@ func BenchmarkLoadProject100Tasks(b *testing.B) {
 func BenchmarkAppendEvent1000(b *testing.B) {
 	tmpDir, _ := os.MkdirTemp("", "bench-append-*")
 	defer os.RemoveAll(tmpDir)
-	
+
 	projectName := "bench-append"
 	projectPath := filepath.Join(tmpDir, projectName)
 	os.MkdirAll(projectPath, 0755)
 
 	v11 := ProjectV11{
 		SchemaVersion: "1.1",
-		Project: ProjectMeta{Name: "bench"},
-		Tasks:   []TaskV11{},
-		Events:  []Event{},
+		Project:       ProjectMeta{Name: "bench"},
+		Tasks:         []TaskV11{},
+		Events:        []Event{},
 	}
 	data, _ := yaml.Marshal(v11)
 	os.WriteFile(filepath.Join(projectPath, "project.yaml"), data, 0644)
@@ -89,7 +89,7 @@ func BenchmarkDependencyValidation(b *testing.B) {
 			tasks[i].DependsOn = []string{fmt.Sprintf("t-%d", i-1)}
 		}
 	}
-	
+
 	project := &ProjectV11{
 		SchemaVersion: "1.1",
 		Tasks:         tasks,

@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/sumix/quickplan/pkg/crypto"
+	"github.com/trstoyan/quickplan/pkg/crypto"
 )
 
 var exportCmd = &cobra.Command{
@@ -35,13 +35,13 @@ var exportCmd = &cobra.Command{
 			return err
 		}
 		projectDir := filepath.Join(dataDir, projectName)
-		
+
 		// 2. Load Project YAML
 		projectFile := filepath.Join(projectDir, "project.yaml")
 		if _, err := os.Stat(projectFile); os.IsNotExist(err) {
 			projectFile = filepath.Join(projectDir, "tasks.yaml") // legacy fallback
 		}
-		
+
 		plaintext, err := os.ReadFile(projectFile)
 		if err != nil {
 			return fmt.Errorf("failed to read project data: %w", err)
@@ -95,7 +95,7 @@ var exportCmd = &cobra.Command{
 		}
 
 		revID := fmt.Sprintf("%d", time.Now().UnixNano())
-		
+
 		header := crypto.RevisionHeader{
 			ProjectID:    string(projectID),
 			RevID:        revID,

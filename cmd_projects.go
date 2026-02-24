@@ -26,7 +26,7 @@ By default, only active projects are shown. Use --all to see archived projects.`
 		if err != nil {
 			return fmt.Errorf("failed to list projects: %w", err)
 		}
-		
+
 		if len(projects) == 0 {
 			if showAll {
 				fmt.Println("No projects found. Create one with 'quickplan create <name>'")
@@ -35,13 +35,13 @@ By default, only active projects are shown. Use --all to see archived projects.`
 			}
 			return nil
 		}
-		
+
 		// Get current project
 		current, err := getCurrentProject()
 		if err != nil {
 			current = "none"
 		}
-		
+
 		fmt.Printf("Available projects:\n\n")
 		for i, project := range projects {
 			marker := " "
@@ -60,11 +60,11 @@ By default, only active projects are shown. Use --all to see archived projects.`
 
 			fmt.Printf("%s %d. %s%s\n", marker, i+1, project, archivedSuffix)
 		}
-		
+
 		if current != "none" && current != "" {
 			fmt.Printf("\n* = current project\n")
 		}
-		
+
 		return nil
 	},
 }

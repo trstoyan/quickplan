@@ -91,7 +91,7 @@ var snapshotRestoreCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		snapshotFile := args[0]
-		
+
 		file, err := os.Open(snapshotFile)
 		if err != nil {
 			return err
@@ -117,7 +117,7 @@ var snapshotRestoreCmd = &cobra.Command{
 			}
 
 			target := filepath.Join(dataDir, header.Name)
-			
+
 			switch header.Typeflag {
 			case tar.TypeDir:
 				if err := os.MkdirAll(target, 0755); err != nil {

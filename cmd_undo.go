@@ -20,7 +20,7 @@ var undoCmd = &cobra.Command{
 		}
 
 		undoBackupPath := filepath.Join(dataDir, ".undo_backup.yaml")
-		
+
 		// Check if backup exists
 		if _, err := os.Stat(undoBackupPath); os.IsNotExist(err) {
 			return fmt.Errorf("no undo information found or last action was not a deletion")

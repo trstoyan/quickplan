@@ -38,7 +38,7 @@ func TestLoadProjectV11(t *testing.T) {
 	os.WriteFile(filepath.Join(projectPath, "project.yaml"), data, 0644)
 
 	pdm := NewProjectDataManager(tmpDir, NewVersionManager("0.1.0"))
-	
+
 	views, isV11, err := pdm.GetTaskViews(projectName)
 	if err != nil {
 		t.Fatalf("Failed to get task views: %v", err)

@@ -36,21 +36,6 @@ type NoteEntry struct {
 	Timestamp time.Time `yaml:"timestamp"`
 }
 
-// EnvironmentConfig defines the execution environment for an agent.
-type EnvironmentConfig struct {
-	Provider string `yaml:"provider,omitempty"` // "local", "daytona"
-	Image    string `yaml:"image,omitempty"`    // e.g., "golang:1.22"
-}
-
-// AgentBehavior defines the "personality" and "loop rules" for an AI agent.
-type AgentBehavior struct {
-	Role         string            `yaml:"role,omitempty"`          // e.g., "Senior Go Architect"
-	LifeCycle    string            `yaml:"lifecycle,omitempty"`     // e.g., "Atomic" (one-shot) or "Infinite" (loop)
-	LoopInterval string            `yaml:"loop_interval,omitempty"` // e.g., "30s"
-	Strategy     string            `yaml:"strategy,omitempty"`      // e.g., "TDD" or "Fast Prototype"
-	Environment  EnvironmentConfig `yaml:"environment,omitempty"`
-}
-
 // Task represents a single task item
 type Task struct {
 	ID           int           `yaml:"id"`

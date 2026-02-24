@@ -16,14 +16,14 @@ var pulseCmd = &cobra.Command{
 		taskIDStr := args[0]
 		status := args[1]
 		prevStatus, _ := cmd.Flags().GetString("prev-status")
-		
+
 		var taskID interface{}
 		if id, err := strconv.Atoi(taskIDStr); err == nil {
 			taskID = id
 		} else {
 			taskID = taskIDStr
 		}
-		
+
 		project, _ := cmd.Flags().GetString("project")
 		if project == "" {
 			project, _ = getCurrentProject()

@@ -10,8 +10,8 @@ func TestIgnoreFilter_DefaultPatterns(t *testing.T) {
 	filter := NewIgnoreFilter()
 
 	tests := []struct {
-		name           string
-		dirName        string
+		name            string
+		dirName         string
 		shouldBeIgnored bool
 	}{
 		{"GitDirectory", ".git", true},
@@ -57,8 +57,8 @@ test_*
 	}
 
 	tests := []struct {
-		name           string
-		dirName        string
+		name            string
+		dirName         string
 		shouldBeIgnored bool
 	}{
 		{"DefaultGit", ".git", true},

@@ -72,10 +72,10 @@ func ListPlugins() ([]PluginInfo, error) {
 }
 
 type PluginRequest struct {
-	TaskID       string        `json:"task_id"`
-	Role         string        `json:"role"`
-	Strategy     string        `json:"strategy"`
-	AllowedPaths []string      `json:"allowed_paths"`
+	TaskID       string   `json:"task_id"`
+	Role         string   `json:"role"`
+	Strategy     string   `json:"strategy"`
+	AllowedPaths []string `json:"allowed_paths"`
 }
 
 type PluginResponse struct {
@@ -92,7 +92,7 @@ func ExecutePlugin(pluginName string, req PluginRequest) (*PluginResponse, error
 	input, _ := json.Marshal(req)
 	cmd := exec.Command(path)
 	cmd.Stdin = bytes.NewReader(input)
-	
+
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

@@ -37,10 +37,10 @@ func TestAppendEvent(t *testing.T) {
 
 	// 2. Append second event
 	event2 := Event{
-		Timestamp: time.Now().Add(time.Second).Round(time.Second),
-		Type:      "TASK_STATUS_CHANGED",
-		Actor:     "human",
-		TaskID:    "t-1",
+		Timestamp:  time.Now().Add(time.Second).Round(time.Second),
+		Type:       "TASK_STATUS_CHANGED",
+		Actor:      "human",
+		TaskID:     "t-1",
 		PrevStatus: "PENDING",
 		NextStatus: "DONE",
 	}
@@ -82,9 +82,9 @@ func TestAppendEventV11(t *testing.T) {
 	// Create v1.1 project.yaml
 	v11 := ProjectV11{
 		SchemaVersion: "1.1",
-		Project: ProjectMeta{Name: "v11"},
-		Tasks: []TaskV11{},
-		Events: []Event{},
+		Project:       ProjectMeta{Name: "v11"},
+		Tasks:         []TaskV11{},
+		Events:        []Event{},
 	}
 	data, _ := yaml.Marshal(v11)
 	os.WriteFile(filepath.Join(projectPath, "project.yaml"), data, 0644)

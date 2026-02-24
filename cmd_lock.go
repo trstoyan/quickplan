@@ -45,7 +45,7 @@ var lockStatusCmd = &cobra.Command{
 		fmt.Printf("Owner PID: %d\n", lock.PID)
 		fmt.Printf("Host:      %s\n", lock.Host)
 		fmt.Printf("Created:   %s\n", lock.CreatedAt.Format(time.RFC3339))
-		
+
 		expiresAt := lock.CreatedAt.Add(time.Duration(lock.TTL) * time.Second)
 		remaining := time.Until(expiresAt)
 		if remaining > 0 {
@@ -100,7 +100,7 @@ var unlockCmd = &cobra.Command{
 func init() {
 	lockCmd.AddCommand(lockStatusCmd)
 	lockStatusCmd.Flags().StringP("project", "p", "", "Project name")
-	
+
 	unlockCmd.Flags().StringP("project", "p", "", "Project name")
 	unlockCmd.Flags().BoolP("force", "f", false, "Force unlock even if lock is active")
 }

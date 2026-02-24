@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/sumix/quickplan/pkg/crypto"
+	"github.com/trstoyan/quickplan/pkg/crypto"
 )
 
 var importCmd = &cobra.Command{
@@ -18,7 +18,7 @@ var importCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		blobPath := args[0]
-		
+
 		// 1. Load Blob
 		blobData, err := os.ReadFile(blobPath)
 		if err != nil {
@@ -45,7 +45,7 @@ var importCmd = &cobra.Command{
 			return err
 		}
 		projectDir := filepath.Join(dataDir, projectName)
-		
+
 		// Ensure project exists or create it
 		if _, err := os.Stat(projectDir); os.IsNotExist(err) {
 			if err := os.MkdirAll(projectDir, 0755); err != nil {

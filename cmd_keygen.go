@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/sumix/quickplan/pkg/crypto"
+	"github.com/trstoyan/quickplan/pkg/crypto"
 )
 
 type UserIdentity struct {

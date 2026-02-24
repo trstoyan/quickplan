@@ -23,7 +23,7 @@ func TestPulsePayloadV2(t *testing.T) {
 
 	// 2. Test with prevStatus
 	SendPulse("test-proj", "test-agent", "t-1", "DONE", "IN_PROGRESS")
-	
+
 	// Wait a bit for the goroutine
 	time.Sleep(100 * time.Millisecond)
 
@@ -38,7 +38,7 @@ func TestPulsePayloadV2(t *testing.T) {
 	// 3. Test without prevStatus
 	receivedPayload = nil
 	SendPulse("test-proj", "test-agent", "t-2", "PENDING", "")
-	
+
 	time.Sleep(100 * time.Millisecond)
 
 	if _, ok := receivedPayload["prev_status"]; ok {

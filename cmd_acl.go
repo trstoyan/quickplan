@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/sumix/quickplan/pkg/crypto"
+	"github.com/trstoyan/quickplan/pkg/crypto"
 	"gopkg.in/yaml.v3"
 )
 
@@ -50,7 +50,7 @@ var aclAddCmd = &cobra.Command{
 			return err
 		}
 		projectDir := filepath.Join(dataDir, projectName)
-		
+
 		// 2. Load Identity
 		identityPath, _ := cmd.Flags().GetString("identity")
 		if identityPath == "" {

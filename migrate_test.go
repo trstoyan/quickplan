@@ -64,7 +64,7 @@ func TestMigrationRoundtrip(t *testing.T) {
 
 	// 2. Perform migration logic (simulated)
 	pdm := NewProjectDataManager(tmpDir, NewVersionManager("0.1.0"))
-	
+
 	lData, err := pdm.LoadProjectData(projectName)
 	if err != nil {
 		t.Fatalf("Failed to load legacy data: %v", err)
@@ -91,7 +91,7 @@ func TestMigrationRoundtrip(t *testing.T) {
 		for j, d := range tsk.DependsOn {
 			deps[j] = "t-" + strconv.Itoa(d)
 		}
-		
+
 		v11.Tasks[i] = TaskV11{
 			ID:        "t-" + strconv.Itoa(tsk.ID),
 			Name:      tsk.Text,
