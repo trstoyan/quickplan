@@ -131,8 +131,8 @@ func TestMigrationRoundtrip(t *testing.T) {
 	if statusMap["t-2"] != "BLOCKED" {
 		t.Errorf("Expected t-2 to be BLOCKED, got %s", statusMap["t-2"])
 	}
-	if statusMap["t-3"] != "PENDING" {
-		t.Errorf("Expected t-3 to be PENDING, got %s", statusMap["t-3"])
+	if statusMap["t-3"] != "TODO" {
+		t.Errorf("Expected t-3 to be TODO, got %s", statusMap["t-3"])
 	}
 
 	// Verify dependencies
@@ -151,7 +151,7 @@ func TestMigrationRoundtrip(t *testing.T) {
 	v11Data.Tasks = append(v11Data.Tasks, TaskV11{
 		ID:     "t-4",
 		Name:   "New v1.1 Task",
-		Status: "PENDING",
+		Status: "TODO",
 	})
 	err = pdm.SaveProjectV11(projectName, v11Data)
 	if err != nil {

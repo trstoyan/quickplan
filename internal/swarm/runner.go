@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/daytonaio/daytona/libs/sdk-go/pkg/daytona"
 	"github.com/daytonaio/daytona/libs/sdk-go/pkg/types"
@@ -16,14 +18,19 @@ type Runner interface {
 	Setup(task *TaskView) error
 	Execute(command string, task *TaskView) (string, error)
 	Teardown(task *TaskView) error
+	SetLogger(logger *EventLogger)
 }
 
-// LocalRunner executes tasks on the local machine using qp-loop.sh
+// LocalRunner executes tasks on the local machine
 type LocalRunner struct {
-	ScriptPath string
 	Project    string
 	AgentID    string
 	Workspace  string
+	Logger     *EventLogger
+}
+
+func (r *LocalRunner) SetLogger(logger *EventLogger) {
+	r.Logger = logger
 }
 
 func (r *LocalRunner) Setup(task *TaskView) error {
@@ -37,6 +44,14 @@ func (r *LocalRunner) Setup(task *TaskView) error {
 		return err
 	}
 	r.Workspace = workspace
+
+	if r.Logger != nil {
+		r.Logger.Log("INFO", "LocalRunner", fmt.Sprintf("Setup workspace: %s", workspace), map[string]interface{}{
+			"project": r.Project,
+			"agent":   r.AgentID,
+			"task_id": taskID,
+		})
+	}
 	return nil
 }
 
@@ -47,21 +62,45 @@ func (r *LocalRunner) Execute(command string, task *TaskView) (string, error) {
 		}
 	}
 
-	cmd := exec.Command(filepath.Join(r.ScriptPath, "qp-loop.sh"), r.Project, r.AgentID)
+	if r.Logger != nil {
+		r.Logger.Log("INFO", "LocalRunner", fmt.Sprintf("Executing command in %s", r.Workspace), map[string]interface{}{
+			"command": command,
+			"agent":   r.AgentID,
+		})
+	}
+
+	if command == "" {
+		// Default behavior if no command: simulate work
+		time.Sleep(2 * time.Second)
+		return "Simulated task completion", nil
+	}
+
+	parts := strings.Split(command, " ")
+	cmd := exec.Command(parts[0], parts[1:]...)
 	cmd.Dir = r.Workspace
 	applyLocalSandbox(cmd, r.Workspace)
 
-	// For LocalRunner, qp-loop.sh currently handles the full loop.
-	// In v1.2, we might want to pipe the specific command/prompt here.
-	if err := cmd.Start(); err != nil {
-		return "", err
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		if r.Logger != nil {
+			r.Logger.Log("ERROR", "LocalRunner", "Command execution failed", map[string]interface{}{
+				"error":  err.Error(),
+				"output": string(output),
+			})
+		}
+		return string(output), err
 	}
-	return fmt.Sprintf("Started local agent %s (PID: %d)", r.AgentID, cmd.Process.Pid), nil
+	return string(output), nil
 }
 
 func (r *LocalRunner) Teardown(task *TaskView) error {
 	if r.Workspace == "" {
 		return nil
+	}
+	if r.Logger != nil {
+		r.Logger.Log("INFO", "LocalRunner", "Teardown workspace", map[string]interface{}{
+			"workspace": r.Workspace,
+		})
 	}
 	return os.RemoveAll(r.Workspace)
 }
@@ -72,6 +111,11 @@ type DaytonaRunner struct {
 	AgentID string
 	Client  *daytona.Client
 	Sandbox *daytona.Sandbox
+	Logger  *EventLogger
+}
+
+func (r *DaytonaRunner) SetLogger(logger *EventLogger) {
+	r.Logger = logger
 }
 
 func (r *DaytonaRunner) Setup(task *TaskView) error {
@@ -89,7 +133,12 @@ func (r *DaytonaRunner) Setup(task *TaskView) error {
 	}
 
 	workspaceName := fmt.Sprintf("qp-%s-%s", r.Project, r.AgentID)
-	fmt.Printf("🏗️ Daytona: Creating workspace %s with image %s...\n", workspaceName, image)
+
+	if r.Logger != nil {
+		r.Logger.Log("INFO", "DaytonaRunner", fmt.Sprintf("Creating workspace %s", workspaceName), map[string]interface{}{
+			"image": image,
+		})
+	}
 
 	params := types.ImageParams{
 		SandboxBaseParams: types.SandboxBaseParams{Name: workspaceName},
@@ -114,10 +163,13 @@ func (r *DaytonaRunner) Execute(command string, task *TaskView) (string, error) 
 	}
 
 	workspaceName := fmt.Sprintf("qp-%s-%s", r.Project, r.AgentID)
+	msg := fmt.Sprintf("Executing task in workspace %s", workspaceName)
 	if task != nil {
-		fmt.Printf("🚀 Daytona: Executing task %s in workspace %s...\n", task.ID, workspaceName)
-	} else {
-		fmt.Printf("🚀 Daytona: Executing task in workspace %s...\n", workspaceName)
+		msg = fmt.Sprintf("Executing task %s in workspace %s", task.ID, workspaceName)
+	}
+
+	if r.Logger != nil {
+		r.Logger.Log("INFO", "DaytonaRunner", msg, nil)
 	}
 
 	response, err := r.Sandbox.Process.ExecuteCommand(context.Background(), command)
@@ -137,7 +189,10 @@ func (r *DaytonaRunner) Teardown(task *TaskView) error {
 	}
 
 	workspaceName := fmt.Sprintf("qp-%s-%s", r.Project, r.AgentID)
-	fmt.Printf("🧹 Daytona: Destroying workspace %s...\n", workspaceName)
+
+	if r.Logger != nil {
+		r.Logger.Log("INFO", "DaytonaRunner", fmt.Sprintf("Destroying workspace %s", workspaceName), nil)
+	}
 
 	if err := r.Sandbox.Delete(context.Background()); err != nil {
 		return fmt.Errorf("Daytona workspace deletion failed: %w", err)
@@ -148,7 +203,7 @@ func (r *DaytonaRunner) Teardown(task *TaskView) error {
 }
 
 // GetRunner returns the appropriate runner based on task behavior
-func GetRunner(project, agentID, scriptPath string, task *TaskView) Runner {
+func GetRunner(project, agentID string, task *TaskView) Runner {
 	provider := task.Behavior.Environment.Provider
 	if provider == "daytona" {
 		return &DaytonaRunner{
@@ -159,7 +214,6 @@ func GetRunner(project, agentID, scriptPath string, task *TaskView) Runner {
 
 	// Default to local
 	return &LocalRunner{
-		ScriptPath: scriptPath,
 		Project:    project,
 		AgentID:    agentID,
 	}

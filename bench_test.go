@@ -23,7 +23,7 @@ func BenchmarkLoadProject100Tasks(b *testing.B) {
 		tasks[i] = TaskV11{
 			ID:     fmt.Sprintf("t-%d", i),
 			Name:   fmt.Sprintf("Task %d", i),
-			Status: "PENDING",
+			Status: "TODO",
 		}
 	}
 
@@ -83,7 +83,7 @@ func BenchmarkDependencyValidation(b *testing.B) {
 	for i := 0; i < 100; i++ {
 		tasks[i] = TaskV11{
 			ID:     fmt.Sprintf("t-%d", i),
-			Status: "PENDING",
+			Status: "TODO",
 		}
 		if i > 0 {
 			tasks[i].DependsOn = []string{fmt.Sprintf("t-%d", i-1)}

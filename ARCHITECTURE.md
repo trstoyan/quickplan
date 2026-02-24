@@ -51,11 +51,11 @@ behavior:
 ```
 
 ### Active Awareness
-Agents use `qp-guard.sh` to verify that both logical (task status) and physical (file existence) dependencies are met before proceeding.
+Agents use native state verification to ensure that both logical (task status) and physical (file existence) dependencies are met before proceeding.
 
 ## Getting Started
 1. Install `quickplan` CLI.
 2. Create a project: `quickplan create my-app`.
-3. Add a task with agent behavior: `quickplan add "Implement Auth" --role "Security Expert" --strategy "Zero Trust"`.
-4. Initialize an agent loop: `./scripts/qp-loop.sh my-app agent-01`.
-5. Dispatch a task: `echo "1" > /tmp/qp_bridge_agent-01`.
+3. Add a task with agent behavior: `quickplan add "Implement Auth" --role "Security Expert" --strategy "Zero Trust" --status "TODO"`.
+4. Run the daemon: `quickplan daemon`.
+5. The daemon will automatically pick up and execute tasks in the "TODO" state.

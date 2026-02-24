@@ -30,7 +30,7 @@ func TestLoadProjectV11(t *testing.T) {
 			{
 				ID:     "t-1",
 				Name:   "Task 1",
-				Status: "PENDING",
+				Status: "TODO",
 			},
 		},
 	}

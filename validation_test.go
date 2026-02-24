@@ -15,7 +15,7 @@ func TestValidateProjectV11(t *testing.T) {
 			project: &ProjectV11{
 				SchemaVersion: "1.1",
 				Tasks: []TaskV11{
-					{ID: "t-1", Status: "PENDING"},
+					{ID: "t-1", Status: "TODO"},
 					{ID: "t-2", Status: "DONE", DependsOn: []string{"t-1"}},
 				},
 			},
@@ -34,7 +34,7 @@ func TestValidateProjectV11(t *testing.T) {
 			project: &ProjectV11{
 				SchemaVersion: "1.1",
 				Tasks: []TaskV11{
-					{ID: "t-1", Status: "PENDING"},
+					{ID: "t-1", Status: "TODO"},
 					{ID: "t-1", Status: "DONE"},
 				},
 			},
@@ -55,7 +55,7 @@ func TestValidateProjectV11(t *testing.T) {
 			project: &ProjectV11{
 				SchemaVersion: "1.1",
 				Tasks: []TaskV11{
-					{ID: "t-1", Status: "PENDING", DependsOn: []string{"t-non-existent"}},
+					{ID: "t-1", Status: "TODO", DependsOn: []string{"t-non-existent"}},
 				},
 			},
 			wantErr: true,
@@ -65,8 +65,8 @@ func TestValidateProjectV11(t *testing.T) {
 			project: &ProjectV11{
 				SchemaVersion: "1.1",
 				Tasks: []TaskV11{
-					{ID: "t-1", Status: "PENDING", DependsOn: []string{"t-2"}},
-					{ID: "t-2", Status: "PENDING", DependsOn: []string{"t-1"}},
+					{ID: "t-1", Status: "TODO", DependsOn: []string{"t-2"}},
+					{ID: "t-2", Status: "TODO", DependsOn: []string{"t-1"}},
 				},
 			},
 			wantErr: true,

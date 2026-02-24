@@ -3,7 +3,10 @@ module github.com/trstoyan/quickplan
 go 1.25.4
 
 require (
+	github.com/charmbracelet/bubbles v0.18.0
+	github.com/charmbracelet/bubbletea v0.26.4
 	github.com/charmbracelet/huh v0.5.0
+	github.com/charmbracelet/lipgloss v0.11.0
 	github.com/daytonaio/daytona/libs/sdk-go v0.145.0
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/crypto v0.48.0
@@ -28,9 +31,6 @@ require (
 	github.com/catppuccin/go v0.2.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/charmbracelet/bubbles v0.18.0 // indirect
-	github.com/charmbracelet/bubbletea v0.26.4 // indirect
-	github.com/charmbracelet/lipgloss v0.11.0 // indirect
 	github.com/charmbracelet/x/ansi v0.1.2 // indirect
 	github.com/charmbracelet/x/exp/strings v0.0.0-20240617190524-788ec55faed1 // indirect
 	github.com/charmbracelet/x/input v0.1.2 // indirect
@@ -40,6 +40,7 @@ require (
 	github.com/daytonaio/daytona/libs/toolbox-api-client-go v0.145.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect

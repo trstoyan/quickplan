@@ -13,7 +13,10 @@ var (
 		Use:   "add [task]",
 		Short: "Add a task to the current or specified project",
 		Long: `Add a new task to your project. If --project flag is provided,
-adds the task to that project instead of the current context project.`,
+adds the task to that project instead of the current context project.
+
+Note: In bash, ! triggers history expansion even inside double quotes.
+Wrap the task in single quotes or escape ! if your text includes it.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskText := args[0]
@@ -58,7 +61,7 @@ adds the task to that project instead of the current context project.`,
 				newTask := TaskV11{
 					ID:         fmt.Sprintf("t-%d", len(v11.Tasks)+1), // simple for now
 					Name:       taskText,
-					Status:     "PENDING",
+					Status:     "TODO",
 					AssignedTo: assignedTo,
 					DependsOn:  deps,
 					Behavior: AgentBehavior{
@@ -77,7 +80,7 @@ adds the task to that project instead of the current context project.`,
 				}
 
 				// Emit pulse
-				SendPulse(targetProject, "human", newTask.ID, "PENDING", "")
+				SendPulse(targetProject, "human", newTask.ID, "TODO", "")
 
 				if globalJSON {
 					output := map[string]interface{}{
@@ -148,12 +151,12 @@ adds the task to that project instead of the current context project.`,
 				Type:       "TASK_CREATED",
 				Actor:      "human",
 				TaskID:     fmt.Sprintf("t-%d", newTask.ID),
-				NextStatus: "PENDING",
+				NextStatus: "TODO",
 				Message:    fmt.Sprintf("Task created: %s", taskText),
 			})
 
 			// Emit pulse
-			SendPulse(targetProject, "human", newTask.ID, "PENDING", "")
+			SendPulse(targetProject, "human", newTask.ID, "TODO", "")
 
 			if globalJSON {
 				output := map[string]interface{}{

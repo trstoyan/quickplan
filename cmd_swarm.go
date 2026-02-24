@@ -17,24 +17,33 @@ type AgentRunner interface {
 }
 
 // BackgroundRunner implements AgentRunner using os/exec
-type BackgroundRunner struct{}
+type BackgroundRunner struct {
+	Logger *swarm.EventLogger
+}
 
 // Start starts a worker agent using the appropriate runner
-func (br *BackgroundRunner) Start(project, agentID, scriptPath string, task *TaskView) error {
-	runner := swarm.GetRunner(project, agentID, scriptPath, task)
+func (br *BackgroundRunner) Start(project, agentID string, task *TaskView) error {
+	runner := swarm.GetRunner(project, agentID, task)
+	if br.Logger != nil {
+		runner.SetLogger(br.Logger)
+	}
 
 	if err := runner.Setup(task); err != nil {
 		return fmt.Errorf("runner setup failed: %w", err)
 	}
 
-	// For v1.2, we'll start execution.
-	// If it's a long-running agent, Execute might just start the process.
-	// For Daytona, we might want to run the handshake command.
 	go func() {
-		command := fmt.Sprintf("qp-loop.sh %s %s", project, agentID)
-		output, err := runner.Execute(command, task)
+		// Native execution
+		output, err := runner.Execute("", task)
 		if err != nil {
-			fmt.Printf("❌ Runner execution failed for %s: %v\nOutput: %s\n", agentID, err, output)
+			if br.Logger != nil {
+				br.Logger.Log("ERROR", "Swarm", fmt.Sprintf("Runner execution failed for %s", agentID), map[string]interface{}{
+					"error":  err.Error(),
+					"output": output,
+				})
+			} else {
+				fmt.Printf("❌ Runner execution failed for %s: %v\nOutput: %s\n", agentID, err, output)
+			}
 		}
 
 		// In a real swarm, we'd wait for completion before teardown
@@ -67,15 +76,15 @@ var swarmStartCmd = &cobra.Command{
 			}
 		}
 
-		// 1. Extract Scripts
-		scriptDir, err := ExtractScripts()
+		// 1. Initialize Logger
+		dataDir, _ := getDataDir()
+		logPath := filepath.Join(dataDir, "events.jsonl")
+		logger, err := swarm.NewEventLogger(logPath)
 		if err != nil {
-			return fmt.Errorf("failed to extract scripts: %w", err)
+			return fmt.Errorf("failed to initialize logger: %w", err)
 		}
-
-		if !globalJSON {
-			fmt.Printf("Scripts extracted to %s\n", scriptDir)
-		}
+		defer logger.Close()
+		logger.OutputJSON = globalJSON
 
 		// 2. Setup Bridge Directory
 		bridgeDir := "/tmp"
@@ -84,7 +93,6 @@ var swarmStartCmd = &cobra.Command{
 		}
 
 		// 3. Load Project and tasks to determine environments
-		dataDir, _ := getDataDir()
 		projectManager := NewProjectDataManager(dataDir, NewVersionManager(version))
 		views, _, err := projectManager.GetTaskViews(projectName)
 		if err != nil {
@@ -92,7 +100,7 @@ var swarmStartCmd = &cobra.Command{
 		}
 
 		// 4. Start Workers
-		runner := &BackgroundRunner{}
+		runner := &BackgroundRunner{Logger: logger}
 
 		if !globalJSON {
 			fmt.Printf("Initializing Swarm for project '%s' with %d workers...\n", projectName, workers)
@@ -101,10 +109,10 @@ var swarmStartCmd = &cobra.Command{
 		for i := 1; i <= workers; i++ {
 			agentID := fmt.Sprintf("worker-%d", i)
 
-			// Simple allocation: find next pending task or default to local
+			// Simple allocation: find next todo task or default to local
 			var targetTask *TaskView
 			for _, v := range views {
-				if v.Status == "PENDING" && (v.AssignedTo == "" || v.AssignedTo == agentID) {
+				if v.Status == "TODO" && (v.AssignedTo == "" || v.AssignedTo == agentID) {
 					targetTask = &v
 					break
 				}
@@ -120,32 +128,32 @@ var swarmStartCmd = &cobra.Command{
 				}
 			}
 
-			if err := runner.Start(projectName, agentID, scriptDir, targetTask); err != nil {
-				fmt.Printf("Failed to start worker %d: %v\n", i, err)
+			if err := runner.Start(projectName, agentID, targetTask); err != nil {
+				logger.Log("ERROR", "Swarm", fmt.Sprintf("Failed to start worker %d", i), map[string]interface{}{"error": err.Error()})
 			}
 			time.Sleep(200 * time.Millisecond)
 		}
 
 		if globalJSON {
-			fmt.Println("{\"status\": \"started\", \"workers\":", workers, "}")
+			logger.Log("INFO", "Swarm", "Swarm fully operational", map[string]interface{}{"workers": workers})
 		} else {
 			fmt.Println("Swarm fully operational.")
 		}
 
-		// 5. Supervisor Loop (if enabled)
+		// 6. Supervisor Loop (if enabled)
 		supervisorEnabled, _ := cmd.Flags().GetBool("supervisor")
 		if supervisorEnabled {
 			if !globalJSON {
 				fmt.Println("🛡️ Supervisor active. Monitoring for blocked agents...")
 			}
-			runSupervisor(projectName)
+			runSupervisor(projectName, logger)
 		}
 
 		return nil
 	},
 }
 
-func runSupervisor(projectName string) {
+func runSupervisor(projectName string, logger *swarm.EventLogger) {
 	dataDir, _ := getDataDir()
 	versionManager := NewVersionManager(version)
 	projectManager := NewProjectDataManager(dataDir, versionManager)
@@ -156,14 +164,22 @@ func runSupervisor(projectName string) {
 		taskFile = filepath.Join(dataDir, projectName, "tasks.yaml")
 	}
 
-	fmt.Printf("🛡️ Supervisor: Watching %s for state transitions...\n", taskFile)
+	if logger != nil {
+		logger.Log("INFO", "Supervisor", fmt.Sprintf("Watching %s for state transitions", taskFile), nil)
+	} else {
+		fmt.Printf("🛡️ Supervisor: Watching %s for state transitions...\n", taskFile)
+	}
 
 	for {
 		views, _, err := projectManager.GetTaskViews(projectName)
 		if err == nil {
 			for _, task := range views {
 				if task.Status == "BLOCKED" {
-					fmt.Printf("🛡️ Supervisor: Handling BLOCKED Task %s\n", task.ID)
+					if logger != nil {
+						logger.Log("INFO", "Supervisor", fmt.Sprintf("Handling BLOCKED Task %s", task.ID), nil)
+					} else {
+						fmt.Printf("🛡️ Supervisor: Handling BLOCKED Task %s\n", task.ID)
+					}
 
 					// 1. Generate Remedy
 					healTaskText := fmt.Sprintf("REMEDY: Resolve blocker in Task %s", task.ID)
@@ -174,7 +190,7 @@ func runSupervisor(projectName string) {
 						v11.Tasks = append(v11.Tasks, TaskV11{
 							ID:     fmt.Sprintf("remedy-%d", time.Now().Unix()),
 							Name:   healTaskText,
-							Status: "PENDING",
+							Status: "TODO",
 							Behavior: AgentBehavior{
 								Role: "Senior Troubleshooter",
 							},
@@ -197,7 +213,11 @@ func runSupervisor(projectName string) {
 						})
 						projectManager.SaveProjectData(projectName, legacy)
 					}
-					fmt.Printf("🛡️ Supervisor: Injected remedy for %s\n", task.ID)
+					if logger != nil {
+						logger.Log("INFO", "Supervisor", fmt.Sprintf("Injected remedy for %s", task.ID), nil)
+					} else {
+						fmt.Printf("🛡️ Supervisor: Injected remedy for %s\n", task.ID)
+					}
 				}
 			}
 		}

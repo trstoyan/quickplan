@@ -104,6 +104,9 @@ quickplan add "Task one"
 quickplan add "Task two"
 ```
 
+Note: In bash, ! triggers history expansion even inside double quotes.
+Wrap the task in single quotes or escape ! if your text includes it.
+
 ### Complete Tasks
 
 ```bash

@@ -30,6 +30,7 @@ var statsCmd = &cobra.Command{
 
 		fmt.Printf("📊 Statistics for project '%s':\n", projectName)
 		fmt.Printf("  Total Tasks:  %d\n", len(views))
+		fmt.Printf("  Todo:         %d\n", counts["TODO"])
 		fmt.Printf("  Pending:      %d\n", counts["PENDING"])
 		fmt.Printf("  In Progress:  %d\n", counts["IN_PROGRESS"])
 		fmt.Printf("  Done:         %d\n", counts["DONE"])

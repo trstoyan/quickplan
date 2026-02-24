@@ -41,7 +41,7 @@ func TestAppendEvent(t *testing.T) {
 		Type:       "TASK_STATUS_CHANGED",
 		Actor:      "human",
 		TaskID:     "t-1",
-		PrevStatus: "PENDING",
+		PrevStatus: "TODO",
 		NextStatus: "DONE",
 	}
 	err = pdm.AppendEvent(projectName, event2)
@@ -129,7 +129,7 @@ func TestGetTaskStatus(t *testing.T) {
 	}
 
 	task3 := Task{Done: false, Notes: []NoteEntry{{Text: "Regular note"}}}
-	if status := GetTaskStatus(task3); status != "PENDING" {
-		t.Errorf("Expected PENDING, got %s", status)
+	if status := GetTaskStatus(task3); status != "TODO" {
+		t.Errorf("Expected TODO, got %s", status)
 	}
 }

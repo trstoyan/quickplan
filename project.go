@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -47,7 +48,7 @@ func GetTaskStatus(task Task) string {
 			return "BLOCKED"
 		}
 	}
-	return "PENDING"
+	return "TODO"
 }
 
 // AppendEvent appends an event to the project audit trail.
@@ -303,7 +304,7 @@ func ValidateProjectV11(project *ProjectV11) error {
 
 func isValidStatus(status string) bool {
 	switch status {
-	case "PENDING", "BLOCKED", "IN_PROGRESS", "DONE", "FAILED", "RETRYING", "CANCELLED":
+	case "TODO", "PENDING", "BLOCKED", "IN_PROGRESS", "DONE", "FAILED", "RETRYING", "CANCELLED":
 		return true
 	}
 	return false
@@ -566,6 +567,80 @@ func (pdm *ProjectDataManager) SaveProjectConfig(projectName string, config *Pro
 	}
 
 	return nil
+}
+
+// UpdateTaskStatus updates the status and assigned agent of a specific task.
+func (pdm *ProjectDataManager) UpdateTaskStatus(projectName, taskID, status, agentID string) error {
+	// Try v1.1 first
+	if v11, err := pdm.LoadProjectV11(projectName); err == nil {
+		found := false
+		for i := range v11.Tasks {
+			if v11.Tasks[i].ID == taskID {
+				prevStatus := v11.Tasks[i].Status
+				v11.Tasks[i].Status = status
+				v11.Tasks[i].AssignedTo = agentID
+				v11.Tasks[i].UpdatedAt = time.Now()
+
+				v11.Events = append(v11.Events, Event{
+					Timestamp:  time.Now(),
+					Type:       "TASK_STATUS_CHANGED",
+					Actor:      agentID,
+					TaskID:     taskID,
+					PrevStatus: prevStatus,
+					NextStatus: status,
+					Message:    fmt.Sprintf("Status updated to %s", status),
+				})
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("task %s not found in project %s", taskID, projectName)
+		}
+		return pdm.SaveProjectV11(projectName, v11)
+	}
+
+	// Fallback to legacy
+	projectData, err := pdm.LoadProjectData(projectName)
+	if err != nil {
+		return err
+	}
+
+	id, err := strconv.Atoi(strings.TrimPrefix(taskID, "t-"))
+	if err != nil {
+		return fmt.Errorf("invalid legacy task ID: %s", taskID)
+	}
+
+	found := false
+	for i := range projectData.Tasks {
+		if projectData.Tasks[i].ID == id {
+			prevStatus := GetTaskStatus(projectData.Tasks[i])
+			projectData.Tasks[i].Done = (status == "DONE")
+			projectData.Tasks[i].AssignedTo = agentID
+			if projectData.Tasks[i].Done {
+				now := time.Now()
+				projectData.Tasks[i].Completed = &now
+			}
+
+			pdm.AppendEvent(projectName, Event{
+				Timestamp:  time.Now(),
+				Type:       "TASK_STATUS_CHANGED",
+				Actor:      agentID,
+				TaskID:     taskID,
+				PrevStatus: prevStatus,
+				NextStatus: status,
+				Message:    fmt.Sprintf("Status updated to %s", status),
+			})
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("task %s not found in project %s", taskID, projectName)
+	}
+
+	return pdm.SaveProjectData(projectName, projectData)
 }
 
 // ListProjects returns a list of project names, optionally including archived ones

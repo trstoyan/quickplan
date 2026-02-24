@@ -37,7 +37,7 @@ func TestPulsePayloadV2(t *testing.T) {
 
 	// 3. Test without prevStatus
 	receivedPayload = nil
-	SendPulse("test-proj", "test-agent", "t-2", "PENDING", "")
+	SendPulse("test-proj", "test-agent", "t-2", "TODO", "")
 
 	time.Sleep(100 * time.Millisecond)
 
