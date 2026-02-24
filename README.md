@@ -362,6 +362,13 @@ go test -cover ./...
 - [ ] Advanced reporting and analytics
 - [ ] Manager CLI (extended features - paid only)
 
+## Commercial vs. Open Source
+
+QuickPlan follows an **Open Core** model:
+
+- **CLI / Local Agent (MIT)**: The `quick-plan-cli` tool you are using is 100% open-source and free forever. It is designed for individual developers, local-first workflows, and ad-hoc automation.
+- **Federated Swarms & Managed Registry (Commercial)**: Features involving multi-agent orchestration, team collaboration, and the hosted registry at `quickplan.sh` are premium services. These features enable enterprise-grade scale, security, and management for agent swarms.
+
 ## License
 
 MIT License - See [LICENSE](LICENSE) file for details.

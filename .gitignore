@@ -31,3 +31,11 @@ Thumbs.db
 rpmbuild/
 *.rpm
 *.spec.backup
+
+# Sensitive & Private
+quickplan-web/
+identity.json
+*.qpblob
+*.qpblob.json
+.env
+.secrets

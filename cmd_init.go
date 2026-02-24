@@ -21,19 +21,20 @@ var initCmd = &cobra.Command{
 		}
 
 		isInteractive, _ := cmd.Flags().GetBool("interactive")
-		
+
+		// Initialize managers
+		dataDir, err := getDataDir()
+		if err != nil {
+			return err
+		}
+		versionManager := NewVersionManager(version)
+		projectManager := NewProjectDataManager(dataDir, versionManager)
+
 		// If non-interactive is set globally, or if we have a name and not asking for interactive
 		if globalNonInteractive || (!isInteractive && projectName != "") {
 			if projectName == "" {
 				projectName = "new-project"
 			}
-			
-			dataDir, err := getDataDir()
-			if err != nil {
-				return err
-			}
-			versionManager := NewVersionManager(version)
-			projectManager := NewProjectDataManager(dataDir, versionManager)
 
 			if err := projectManager.CreateProject(projectName); err != nil {
 				return fmt.Errorf("failed to create project: %w", err)
@@ -41,7 +42,7 @@ var initCmd = &cobra.Command{
 			if err := setCurrentProject(projectName); err != nil {
 				return fmt.Errorf("failed to set current project: %w", err)
 			}
-			
+
 			if globalJSON {
 				fmt.Printf("{\"status\": \"success\", \"project\": \"%s\"}\n", projectName)
 			} else {
@@ -56,11 +57,29 @@ var initCmd = &cobra.Command{
 
 		scanner := bufio.NewScanner(os.Stdin)
 
+		// 1. Project Name
+		if projectName == "" {
+			fmt.Print("Enter project name: ")
+			if scanner.Scan() {
+				projectName = strings.TrimSpace(scanner.Text())
+			}
+			if projectName == "" {
+				projectName = "my-project"
+			}
+		}
+
+		// Create project
+		if err := projectManager.CreateProject(projectName); err != nil {
+			return fmt.Errorf("failed to create project: %w", err)
+		}
+		if err := setCurrentProject(projectName); err != nil {
+			return fmt.Errorf("failed to set current project: %w", err)
+		}
 
 		// 2. Initial Tasks
 		fmt.Println("\nLet's add some initial tasks.")
 		fmt.Println("Enter tasks one by one (empty line to finish):")
-		
+
 		projectData, err := projectManager.LoadProjectData(projectName)
 		if err != nil {
 			return err
@@ -76,7 +95,7 @@ var initCmd = &cobra.Command{
 			if taskText == "" {
 				break
 			}
-			
+
 			fmt.Print("  Assign Role (default: Generalist): ")
 			if !scanner.Scan() {
 				break
@@ -85,10 +104,10 @@ var initCmd = &cobra.Command{
 			if role == "" {
 				role = "Generalist"
 			}
-			
+
 			newTask := Task{
-				ID:        len(projectData.Tasks) + 1,
-				Text:      taskText,
+				ID:   len(projectData.Tasks) + 1,
+				Text: taskText,
 				Behavior: AgentBehavior{
 					Role: role,
 				},

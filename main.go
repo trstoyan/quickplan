@@ -10,10 +10,10 @@ import (
 )
 
 var (
-	version = "0.1.0"
+	version              = "0.3.0-alpha.rc1"
 	globalJSON           bool
 	globalNonInteractive bool
-	rootCmd = &cobra.Command{
+	rootCmd              = &cobra.Command{
 		Use:   "quickplan",
 		Short: "A fast CLI task manager with project support",
 		Long: `QuickPlan is a terminal-based task manager that lets you organize
@@ -76,6 +76,7 @@ func init() {
 	rootCmd.AddCommand(exportCmd)
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(aclCmd)
+	rootCmd.AddCommand(versionCmd)
 }
 
 // Get the data directory for storing projects and tasks
@@ -103,7 +104,7 @@ func getDataDir() (string, error) {
 	if err := os.MkdirAll(tmpDataDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create fallback data directory: %w", err)
 	}
-	
+
 	ensureIgnoreFile(tmpDataDir)
 	return tmpDataDir, nil
 }
@@ -122,13 +123,13 @@ func getCurrentProject() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	contextFile := filepath.Join(dataDir, ".current_project")
 	project, err := os.ReadFile(contextFile)
 	if err != nil {
 		return "default", nil // Return default if no context file exists
 	}
-	
+
 	return string(project), nil
 }
 
@@ -138,7 +139,7 @@ func setCurrentProject(project string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	contextFile := filepath.Join(dataDir, ".current_project")
 	return os.WriteFile(contextFile, []byte(project), 0644)
 }

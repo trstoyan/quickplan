@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -22,12 +21,12 @@ type BackgroundRunner struct{}
 // Start starts a worker agent using the appropriate runner
 func (br *BackgroundRunner) Start(project, agentID, scriptPath string, task *TaskView) error {
 	runner := GetRunner(project, agentID, scriptPath, task)
-	
+
 	if err := runner.Setup(task); err != nil {
 		return fmt.Errorf("runner setup failed: %w", err)
 	}
 
-	// For v1.2, we'll start execution. 
+	// For v1.2, we'll start execution.
 	// If it's a long-running agent, Execute might just start the process.
 	// For Daytona, we might want to run the handshake command.
 	go func() {
@@ -36,7 +35,7 @@ func (br *BackgroundRunner) Start(project, agentID, scriptPath string, task *Tas
 		if err != nil {
 			fmt.Printf("❌ Runner execution failed for %s: %v\nOutput: %s\n", agentID, err, output)
 		}
-		
+
 		// In a real swarm, we'd wait for completion before teardown
 		// For now, we teardown if it's an atomic lifecycle
 		if task.Behavior.LifeCycle == "Atomic" {
@@ -72,7 +71,7 @@ var swarmStartCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to extract scripts: %w", err)
 		}
-		
+
 		if !globalJSON {
 			fmt.Printf("Scripts extracted to %s\n", scriptDir)
 		}
@@ -93,14 +92,14 @@ var swarmStartCmd = &cobra.Command{
 
 		// 4. Start Workers
 		runner := &BackgroundRunner{}
-		
+
 		if !globalJSON {
 			fmt.Printf("Initializing Swarm for project '%s' with %d workers...\n", projectName, workers)
 		}
 
 		for i := 1; i <= workers; i++ {
 			agentID := fmt.Sprintf("worker-%d", i)
-			
+
 			// Simple allocation: find next pending task or default to local
 			var targetTask *TaskView
 			for _, v := range views {
@@ -109,7 +108,7 @@ var swarmStartCmd = &cobra.Command{
 					break
 				}
 			}
-			
+
 			if targetTask == nil {
 				// Default task view for worker if none found
 				targetTask = &TaskView{
@@ -125,7 +124,7 @@ var swarmStartCmd = &cobra.Command{
 			}
 			time.Sleep(200 * time.Millisecond)
 		}
-		
+
 		if globalJSON {
 			fmt.Println("{\"status\": \"started\", \"workers\":", workers, "}")
 		} else {
@@ -144,7 +143,6 @@ var swarmStartCmd = &cobra.Command{
 		return nil
 	},
 }
-
 
 func runSupervisor(projectName string) {
 	dataDir, _ := getDataDir()
@@ -165,10 +163,10 @@ func runSupervisor(projectName string) {
 			for _, task := range views {
 				if task.Status == "BLOCKED" {
 					fmt.Printf("🛡️ Supervisor: Handling BLOCKED Task %s\n", task.ID)
-					
+
 					// 1. Generate Remedy
 					healTaskText := fmt.Sprintf("REMEDY: Resolve blocker in Task %s", task.ID)
-					
+
 					// 2. Inject (v1.1 or legacy handled by manager)
 					if task.IsV11 {
 						v11, _ := projectManager.LoadProjectV11(projectName)
@@ -186,12 +184,14 @@ func runSupervisor(projectName string) {
 						legacy, _ := projectManager.LoadProjectData(projectName)
 						maxID := 0
 						for _, t := range legacy.Tasks {
-							if t.ID > maxID { maxID = t.ID }
+							if t.ID > maxID {
+								maxID = t.ID
+							}
 						}
 						legacy.Tasks = append(legacy.Tasks, Task{
-							ID:      maxID + 1,
-							Text:    healTaskText,
-							Created: time.Now(),
+							ID:       maxID + 1,
+							Text:     healTaskText,
+							Created:  time.Now(),
 							Behavior: AgentBehavior{Role: "Senior Troubleshooter"},
 						})
 						projectManager.SaveProjectData(projectName, legacy)

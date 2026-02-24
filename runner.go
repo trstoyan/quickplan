@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 )
@@ -28,7 +27,7 @@ func (r *LocalRunner) Setup(task *TaskView) error {
 
 func (r *LocalRunner) Execute(command string, task *TaskView) (string, error) {
 	cmd := exec.Command(filepath.Join(r.ScriptPath, "qp-loop.sh"), r.Project, r.AgentID)
-	// For LocalRunner, qp-loop.sh currently handles the full loop. 
+	// For LocalRunner, qp-loop.sh currently handles the full loop.
 	// In v1.2, we might want to pipe the specific command/prompt here.
 	if err := cmd.Start(); err != nil {
 		return "", err
@@ -58,14 +57,12 @@ func (r *DaytonaRunner) Setup(task *TaskView) error {
 	}
 
 	workspaceName := fmt.Sprintf("qp-%s-%s", r.Project, r.AgentID)
-	fmt.Printf("🏗️ Daytona: Creating workspace %s with image %s...
-", workspaceName, image)
+	fmt.Printf("🏗️ Daytona: Creating workspace %s with image %s...\n", workspaceName, image)
 
 	// Example: daytona create --name qp-project-worker-1 --image golang:1.22
 	cmd := exec.Command("daytona", "create", "--name", workspaceName, "--image", image)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("Daytona workspace creation failed: %v
-Output: %s", err, string(output))
+		return fmt.Errorf("Daytona workspace creation failed: %v\nOutput: %s", err, string(output))
 	}
 
 	return nil
@@ -73,8 +70,7 @@ Output: %s", err, string(output))
 
 func (r *DaytonaRunner) Execute(command string, task *TaskView) (string, error) {
 	workspaceName := fmt.Sprintf("qp-%s-%s", r.Project, r.AgentID)
-	fmt.Printf("🚀 Daytona: Executing task %s in workspace %s...
-", task.ID, workspaceName)
+	fmt.Printf("🚀 Daytona: Executing task %s in workspace %s...\n", task.ID, workspaceName)
 
 	// Example: daytona exec qp-project-worker-1 -- "go run main.go"
 	cmd := exec.Command("daytona", "exec", workspaceName, "--", "bash", "-c", command)
@@ -88,8 +84,7 @@ func (r *DaytonaRunner) Execute(command string, task *TaskView) (string, error) 
 
 func (r *DaytonaRunner) Teardown(task *TaskView) error {
 	workspaceName := fmt.Sprintf("qp-%s-%s", r.Project, r.AgentID)
-	fmt.Printf("🧹 Daytona: Destroying workspace %s...
-", workspaceName)
+	fmt.Printf("🧹 Daytona: Destroying workspace %s...\n", workspaceName)
 
 	cmd := exec.Command("daytona", "delete", workspaceName, "--force")
 	return cmd.Run()

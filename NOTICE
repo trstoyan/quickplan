@@ -1,0 +1,14 @@
+QuickPlan CLI
+Copyright (c) 2026 QuickPlan Team
+
+QuickPlan CLI is licensed under the MIT License.
+
+This project includes:
+- Cobra (Apache 2.0)
+- Charmbracelet Huh (MIT)
+- YAML.v3 (MIT)
+
+TRADEMARK NOTICE:
+The "QuickPlan" name and logo are trademarks of the QuickPlan Team.
+The hosted service at quickplan.sh is a commercial offering and is not covered by the MIT license of this CLI tool.
+References to "quickplan-web", "federation", and "registry" refer to these commercial services.
