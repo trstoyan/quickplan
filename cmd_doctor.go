@@ -1,8 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -22,7 +26,7 @@ var doctorCmd = &cobra.Command{
 		projectManager := NewProjectDataManager(dataDir, NewVersionManager(version))
 
 		// 1. Check Lock Status
-		fmt.Print("  [1/3] Lock status: ")
+		fmt.Print("  [1/4] Lock status: ")
 		stale, lock, err := projectManager.IsLockStale(projectName)
 		if err != nil {
 			fmt.Println("✅ No active lock")
@@ -33,7 +37,7 @@ var doctorCmd = &cobra.Command{
 		}
 
 		// 2. Check Schema Validity
-		fmt.Print("  [2/3] Schema validity: ")
+		fmt.Print("  [2/4] Schema validity: ")
 		v11, err := projectManager.LoadProjectV11(projectName)
 		if err == nil {
 			if err := ValidateProjectV11(v11); err != nil {
@@ -54,7 +58,7 @@ var doctorCmd = &cobra.Command{
 		}
 
 		// 3. Check Orphan Dependencies
-		fmt.Print("  [3/3] Orphan dependencies: ")
+		fmt.Print("  [3/4] Orphan dependencies: ")
 		views, _, err := projectManager.GetTaskViews(projectName)
 		if err == nil {
 			taskIDs := make(map[string]bool)
@@ -77,6 +81,29 @@ var doctorCmd = &cobra.Command{
 			}
 		} else {
 			fmt.Println("SKIPPED (load failed)")
+		}
+
+		// 4. Check Registry Connectivity
+		fmt.Print("  [4/4] Registry status: ")
+		registryURL := os.Getenv("QUICKPLAN_REGISTRY_URL")
+		if registryURL == "" {
+			registryURL = "http://localhost:8080"
+		}
+		
+		client := http.Client{Timeout: 2 * time.Second}
+		resp, err := client.Get(registryURL + "/api/v1/info")
+		if err != nil {
+			fmt.Printf("❌ UNREACHABLE (%s)\n", registryURL)
+		} else {
+			defer resp.Body.Close()
+			var info struct {
+				Status string `json:"status"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&info); err == nil {
+				fmt.Printf("✅ %s (%s)\n", strings.ToUpper(info.Status), registryURL)
+			} else {
+				fmt.Printf("⚠️  CONNECTED but malformed response (%s)\n", registryURL)
+			}
 		}
 
 		return nil

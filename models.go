@@ -36,12 +36,57 @@ type NoteEntry struct {
 	Timestamp time.Time `yaml:"timestamp"`
 }
 
+// EnvironmentConfig defines the execution environment for an agent.
+type EnvironmentConfig struct {
+	Provider string `yaml:"provider,omitempty"` // "local", "daytona"
+	Image    string `yaml:"image,omitempty"`    // e.g., "golang:1.22"
+}
+
 // AgentBehavior defines the "personality" and "loop rules" for an AI agent.
 type AgentBehavior struct {
-	Role         string `yaml:"role,omitempty"`          // e.g., "Senior Go Architect"
-	LifeCycle    string `yaml:"lifecycle,omitempty"`     // e.g., "Atomic" (one-shot) or "Infinite" (loop)
-	LoopInterval string `yaml:"loop_interval,omitempty"` // e.g., "30s"
-	Strategy     string `yaml:"strategy,omitempty"`      // e.g., "TDD" or "Fast Prototype"
+	Role         string            `yaml:"role,omitempty"`          // e.g., "Senior Go Architect"
+	LifeCycle    string            `yaml:"lifecycle,omitempty"`     // e.g., "Atomic" (one-shot) or "Infinite" (loop)
+	LoopInterval string            `yaml:"loop_interval,omitempty"` // e.g., "30s"
+	Strategy     string            `yaml:"strategy,omitempty"`      // e.g., "TDD" or "Fast Prototype"
+	Environment  EnvironmentConfig `yaml:"environment,omitempty"`
+}
+
+// TaskV11 represents a task in schema v1.1+
+type TaskV11 struct {
+	ID         string        `yaml:"id"`
+	Name       string        `yaml:"name"`
+	Status     string        `yaml:"status"`
+	AssignedTo string        `yaml:"assigned_to,omitempty"`
+	DependsOn  []string      `yaml:"depends_on,omitempty"`
+	Behavior   AgentBehavior `yaml:"behavior,omitempty"`
+	UpdatedAt  time.Time     `yaml:"updated_at"`
+}
+
+// ProjectV11 represents the structure of project.yaml (v1.1+)
+type ProjectV11 struct {
+	SchemaVersion string    `yaml:"schema_version"`
+	Project       Project   `yaml:"project"`
+	Tasks         []TaskV11 `yaml:"tasks"`
+	Events        []Event   `yaml:"events,omitempty"`
+}
+
+type Project struct {
+	ID        string    `yaml:"id"`
+	Name      string    `yaml:"name"`
+	CreatedBy string    `yaml:"created_by"`
+	CreatedAt time.Time `yaml:"created_at"`
+	UpdatedAt time.Time `yaml:"updated_at"`
+}
+
+type TaskView struct {
+	ID         string
+	Text       string
+	Status     string
+	AssignedTo string
+	DependsOn  []string
+	WatchPath  string
+	Behavior   AgentBehavior
+	IsV11      bool
 }
 
 // Task represents a single task item

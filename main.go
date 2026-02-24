@@ -11,23 +11,41 @@ import (
 
 var (
 	version = "0.1.0"
+	globalJSON           bool
+	globalNonInteractive bool
 	rootCmd = &cobra.Command{
 		Use:   "quickplan",
 		Short: "A fast CLI task manager with project support",
 		Long: `QuickPlan is a terminal-based task manager that lets you organize
 tasks into named projects with vim-inspired selection menus.`,
 		Version: version,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// Pre-execution logic if needed
+		},
 	}
+)
+
+const (
+	ExitSuccess    = 0
+	ExitError      = 1
+	ExitValidation = 2
 )
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		if globalJSON {
+			fmt.Fprintf(os.Stderr, "{\"error\": \"%v\", \"code\": %d}\n", err, ExitError)
+		} else {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		os.Exit(ExitError)
 	}
 }
 
 func init() {
+	rootCmd.PersistentFlags().BoolVar(&globalJSON, "json", false, "Output in JSON format for M2M interoperability")
+	rootCmd.PersistentFlags().BoolVar(&globalNonInteractive, "non-interactive", false, "Bypass human UI prompts")
+
 	rootCmd.AddCommand(createCmd)
 	rootCmd.AddCommand(projectsCmd)
 	rootCmd.AddCommand(changeCmd)

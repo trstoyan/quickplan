@@ -19,13 +19,31 @@ type AgentRunner interface {
 // BackgroundRunner implements AgentRunner using os/exec
 type BackgroundRunner struct{}
 
-func (br *BackgroundRunner) Start(project, agentID, scriptPath string) error {
-	cmd := exec.Command(filepath.Join(scriptPath, "qp-loop.sh"), project, agentID)
-	// We detach the process so it keeps running
-	if err := cmd.Start(); err != nil {
-		return err
+// Start starts a worker agent using the appropriate runner
+func (br *BackgroundRunner) Start(project, agentID, scriptPath string, task *TaskView) error {
+	runner := GetRunner(project, agentID, scriptPath, task)
+	
+	if err := runner.Setup(task); err != nil {
+		return fmt.Errorf("runner setup failed: %w", err)
 	}
-	fmt.Printf("Started agent %s (PID: %d)\n", agentID, cmd.Process.Pid)
+
+	// For v1.2, we'll start execution. 
+	// If it's a long-running agent, Execute might just start the process.
+	// For Daytona, we might want to run the handshake command.
+	go func() {
+		command := fmt.Sprintf("qp-loop.sh %s %s", project, agentID)
+		output, err := runner.Execute(command, task)
+		if err != nil {
+			fmt.Printf("❌ Runner execution failed for %s: %v\nOutput: %s\n", agentID, err, output)
+		}
+		
+		// In a real swarm, we'd wait for completion before teardown
+		// For now, we teardown if it's an atomic lifecycle
+		if task.Behavior.LifeCycle == "Atomic" {
+			runner.Teardown(task)
+		}
+	}()
+
 	return nil
 }
 
@@ -54,46 +72,79 @@ var swarmStartCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to extract scripts: %w", err)
 		}
-		fmt.Printf("Scripts extracted to %s\n", scriptDir)
+		
+		if !globalJSON {
+			fmt.Printf("Scripts extracted to %s\n", scriptDir)
+		}
 
-		// 2. Setup Bridge Directory if needed (usually handled by script, but ensure base)
+		// 2. Setup Bridge Directory
 		bridgeDir := "/tmp"
 		if _, err := os.Stat(bridgeDir); os.IsNotExist(err) {
 			return fmt.Errorf("system bridge directory %s does not exist", bridgeDir)
 		}
 
-		// 3. Start Workers
-		runner := &BackgroundRunner{}
-		var wg sync.WaitGroup
+		// 3. Load Project and tasks to determine environments
+		dataDir, _ := getDataDir()
+		projectManager := NewProjectDataManager(dataDir, NewVersionManager(version))
+		views, _, err := projectManager.GetTaskViews(projectName)
+		if err != nil {
+			return err
+		}
 
-		fmt.Printf("Initializing Swarm for project '%s' with %d workers...\n", projectName, workers)
+		// 4. Start Workers
+		runner := &BackgroundRunner{}
+		
+		if !globalJSON {
+			fmt.Printf("Initializing Swarm for project '%s' with %d workers...\n", projectName, workers)
+		}
 
 		for i := 1; i <= workers; i++ {
-			wg.Add(1)
-			go func(id int) {
-				defer wg.Done()
-				agentID := fmt.Sprintf("worker-%d", id)
-				if err := runner.Start(projectName, agentID, scriptDir); err != nil {
-					fmt.Printf("Failed to start worker %d: %v\n", id, err)
+			agentID := fmt.Sprintf("worker-%d", i)
+			
+			// Simple allocation: find next pending task or default to local
+			var targetTask *TaskView
+			for _, v := range views {
+				if v.Status == "PENDING" && (v.AssignedTo == "" || v.AssignedTo == agentID) {
+					targetTask = &v
+					break
 				}
-				// Stagger start slightly to avoid race conditions on pipe creation if any
-				time.Sleep(200 * time.Millisecond)
-			}(i)
+			}
+			
+			if targetTask == nil {
+				// Default task view for worker if none found
+				targetTask = &TaskView{
+					ID: "default",
+					Behavior: AgentBehavior{
+						Environment: EnvironmentConfig{Provider: "local"},
+					},
+				}
+			}
+
+			if err := runner.Start(projectName, agentID, scriptDir, targetTask); err != nil {
+				fmt.Printf("Failed to start worker %d: %v\n", i, err)
+			}
+			time.Sleep(200 * time.Millisecond)
 		}
 		
-		wg.Wait()
-		fmt.Println("Swarm fully operational.")
+		if globalJSON {
+			fmt.Println("{\"status\": \"started\", \"workers\":", workers, "}")
+		} else {
+			fmt.Println("Swarm fully operational.")
+		}
 
-		// 4. Supervisor Loop (if enabled)
+		// 5. Supervisor Loop (if enabled)
 		supervisorEnabled, _ := cmd.Flags().GetBool("supervisor")
 		if supervisorEnabled {
-			fmt.Println("🛡️ Supervisor active. Monitoring for blocked agents...")
+			if !globalJSON {
+				fmt.Println("🛡️ Supervisor active. Monitoring for blocked agents...")
+			}
 			runSupervisor(projectName)
 		}
 
 		return nil
 	},
 }
+
 
 func runSupervisor(projectName string) {
 	dataDir, _ := getDataDir()

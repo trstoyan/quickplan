@@ -11,43 +11,51 @@ import (
 )
 
 var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Interactive wizard to create a new Quick Plan project",
+	Use:   "init [project_name]",
+	Short: "Initialize a new Quick Plan project",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		interactive, _ := cmd.Flags().GetBool("interactive")
-		if !interactive {
-			return fmt.Errorf("use --interactive flag to run the wizard")
+		projectName := ""
+		if len(args) > 0 {
+			projectName = args[0]
+		}
+
+		isInteractive, _ := cmd.Flags().GetBool("interactive")
+		
+		// If non-interactive is set globally, or if we have a name and not asking for interactive
+		if globalNonInteractive || (!isInteractive && projectName != "") {
+			if projectName == "" {
+				projectName = "new-project"
+			}
+			
+			dataDir, err := getDataDir()
+			if err != nil {
+				return err
+			}
+			versionManager := NewVersionManager(version)
+			projectManager := NewProjectDataManager(dataDir, versionManager)
+
+			if err := projectManager.CreateProject(projectName); err != nil {
+				return fmt.Errorf("failed to create project: %w", err)
+			}
+			if err := setCurrentProject(projectName); err != nil {
+				return fmt.Errorf("failed to set current project: %w", err)
+			}
+			
+			if globalJSON {
+				fmt.Printf("{\"status\": \"success\", \"project\": \"%s\"}\n", projectName)
+			} else {
+				fmt.Printf("✓ Project '%s' initialized.\n", projectName)
+			}
+			return nil
+		}
+
+		if !isInteractive {
+			return fmt.Errorf("use --interactive flag to run the wizard or provide a project name")
 		}
 
 		scanner := bufio.NewScanner(os.Stdin)
 
-		fmt.Println("🤖 Welcome to the Quick Plan Init Wizard")
-		fmt.Println("---------------------------------------")
-
-		// 1. Project Name
-		fmt.Print("Enter project name: ")
-		if !scanner.Scan() {
-			return fmt.Errorf("input error")
-		}
-		projectName := strings.TrimSpace(scanner.Text())
-		if projectName == "" {
-			return fmt.Errorf("project name cannot be empty")
-		}
-
-		dataDir, err := getDataDir()
-		if err != nil {
-			return err
-		}
-		versionManager := NewVersionManager(version)
-		projectManager := NewProjectDataManager(dataDir, versionManager)
-
-		if err := projectManager.CreateProject(projectName); err != nil {
-			return fmt.Errorf("failed to create project: %w", err)
-		}
-		if err := setCurrentProject(projectName); err != nil {
-			return fmt.Errorf("failed to set current project: %w", err)
-		}
-		fmt.Printf("✓ Project '%s' created.\n", projectName)
 
 		// 2. Initial Tasks
 		fmt.Println("\nLet's add some initial tasks.")
