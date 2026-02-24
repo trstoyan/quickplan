@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -51,7 +52,7 @@ displays an interactive menu to select a task to complete.`,
 					prevStatus := v11.Tasks[i].Status
 					v11.Tasks[i].Status = "DONE"
 					v11.Tasks[i].UpdatedAt = time.Now()
-					
+
 					// Emit event
 					v11.Events = append(v11.Events, Event{
 						Timestamp:  time.Now(),
@@ -76,6 +77,21 @@ displays an interactive menu to select a task to complete.`,
 			if err := projectManager.SaveProjectV11(targetProject, v11); err != nil {
 				return fmt.Errorf("failed to save project v1.1: %w", err)
 			}
+			if globalJSON {
+				output := map[string]interface{}{
+					"status":  "success",
+					"project": targetProject,
+					"task": map[string]interface{}{
+						"id":     taskID,
+						"status": "DONE",
+						"done":   true,
+					},
+				}
+				payload, _ := json.Marshal(output)
+				fmt.Println(string(payload))
+				return nil
+			}
+
 			fmt.Printf("Completed task: %s (v1.1)\n", taskID)
 			return nil
 		}
@@ -84,7 +100,7 @@ displays an interactive menu to select a task to complete.`,
 		if err != nil {
 			return fmt.Errorf("failed to load project data: %w", err)
 		}
-		
+
 		// Filter out already completed tasks for menu
 		var incompleteTasks []Task
 		for _, task := range projectData.Tasks {
@@ -92,21 +108,21 @@ displays an interactive menu to select a task to complete.`,
 				incompleteTasks = append(incompleteTasks, task)
 			}
 		}
-		
+
 		if len(incompleteTasks) == 0 {
 			fmt.Println("No incomplete tasks found")
 			return nil
 		}
-		
+
 		var taskToComplete *Task
-		
+
 		if len(args) > 0 {
 			// Task ID provided directly
 			taskID, err := strconv.Atoi(args[0])
 			if err != nil {
 				return fmt.Errorf("invalid task ID: %s", args[0])
 			}
-			
+
 			// Find task by ID
 			found := false
 			for i := range projectData.Tasks {
@@ -119,25 +135,25 @@ displays an interactive menu to select a task to complete.`,
 					break
 				}
 			}
-			
+
 			if !found {
 				return fmt.Errorf("task %d not found", taskID)
 			}
 		} else {
 			// Show interactive menu
 			type taskChoice struct {
-				label string
+				label  string
 				taskID int
 			}
-			
+
 			var choices []taskChoice
 			for _, task := range incompleteTasks {
 				choices = append(choices, taskChoice{
-					label: fmt.Sprintf("%d. %s", task.ID, task.Text),
+					label:  fmt.Sprintf("%d. %s", task.ID, task.Text),
 					taskID: task.ID,
 				})
 			}
-			
+
 			var selected taskChoice
 			form := huh.NewForm(
 				huh.NewGroup(
@@ -148,11 +164,11 @@ displays an interactive menu to select a task to complete.`,
 						Description("Navigate with arrow keys, press Enter to select"),
 				),
 			)
-			
+
 			if err := form.Run(); err != nil {
 				return fmt.Errorf("failed to show menu: %w", err)
 			}
-			
+
 			// Find task by ID in projectData.Tasks (not incompleteTasks)
 			found := false
 			for i := range projectData.Tasks {
@@ -165,12 +181,12 @@ displays an interactive menu to select a task to complete.`,
 					break
 				}
 			}
-			
+
 			if !found {
 				return fmt.Errorf("task %d not found", selected.taskID)
 			}
 		}
-		
+
 		// Mark task as completed
 		prevStatus := GetTaskStatus(*taskToComplete)
 		taskToComplete.Done = true
@@ -203,6 +219,21 @@ displays an interactive menu to select a task to complete.`,
 
 		// Emit pulse
 		SendPulse(targetProject, "human", taskToComplete.ID, "DONE", prevStatus)
+
+		if globalJSON {
+			output := map[string]interface{}{
+				"status":  "success",
+				"project": targetProject,
+				"task": map[string]interface{}{
+					"id":     taskToComplete.ID,
+					"status": "DONE",
+					"done":   true,
+				},
+			}
+			payload, _ := json.Marshal(output)
+			fmt.Println(string(payload))
+			return nil
+		}
 
 		fmt.Printf("Completed task: %s\n", taskToComplete.Text)
 		return nil

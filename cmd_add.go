@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -78,6 +79,22 @@ adds the task to that project instead of the current context project.`,
 				// Emit pulse
 				SendPulse(targetProject, "human", newTask.ID, "PENDING", "")
 
+				if globalJSON {
+					output := map[string]interface{}{
+						"status":  "success",
+						"project": targetProject,
+						"task": map[string]interface{}{
+							"id":     newTask.ID,
+							"text":   newTask.Name,
+							"status": newTask.Status,
+							"done":   newTask.Status == "DONE",
+						},
+					}
+					payload, _ := json.Marshal(output)
+					fmt.Println(string(payload))
+					return nil
+				}
+
 				fmt.Printf("Added task to project '%s' (v1.1): %s\n", targetProject, taskText)
 				return nil
 			}
@@ -104,11 +121,11 @@ adds the task to that project instead of the current context project.`,
 			}
 
 			newTask := Task{
-				ID:        maxID + 1,
-				Text:      taskText,
-				Done:      false,
-				Created:   time.Now(),
-				Completed: nil,
+				ID:         maxID + 1,
+				Text:       taskText,
+				Done:       false,
+				Created:    time.Now(),
+				Completed:  nil,
 				AssignedTo: assignedTo,
 				DependsOn:  dependsOnRaw,
 				Behavior: AgentBehavior{
@@ -137,6 +154,22 @@ adds the task to that project instead of the current context project.`,
 
 			// Emit pulse
 			SendPulse(targetProject, "human", newTask.ID, "PENDING", "")
+
+			if globalJSON {
+				output := map[string]interface{}{
+					"status":  "success",
+					"project": targetProject,
+					"task": map[string]interface{}{
+						"id":     newTask.ID,
+						"text":   newTask.Text,
+						"status": GetTaskStatus(newTask),
+						"done":   newTask.Done,
+					},
+				}
+				payload, _ := json.Marshal(output)
+				fmt.Println(string(payload))
+				return nil
+			}
 
 			fmt.Printf("Added task to project '%s': %s\n", targetProject, taskText)
 			return nil

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -16,11 +17,11 @@ Use --all-projects to list tasks from all projects.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		showAll, _ := cmd.Flags().GetBool("all")
 		allProjects, _ := cmd.Flags().GetBool("all-projects")
-		
+
 		if allProjects {
 			return listAllProjects(showAll)
 		}
-		
+
 		// Determine target project
 		var targetProject string
 		projectFlag, _ := cmd.Flags().GetString("project")
@@ -33,7 +34,7 @@ Use --all-projects to list tasks from all projects.`,
 				return fmt.Errorf("failed to get current project: %w", err)
 			}
 		}
-		
+
 		return listProjectTasks(targetProject, showAll)
 	},
 }
@@ -60,11 +61,63 @@ func listProjectTasks(targetProject string, showAll bool) error {
 	versionManager := NewVersionManager(version)
 	projectManager := NewProjectDataManager(dataDir, versionManager)
 
+	if globalJSON {
+		type taskJSON struct {
+			ID         interface{} `json:"id"`
+			Text       string      `json:"text"`
+			Status     string      `json:"status"`
+			Done       bool        `json:"done"`
+			AssignedTo string      `json:"assigned_to,omitempty"`
+			DependsOn  interface{} `json:"depends_on,omitempty"`
+			Provider   string      `json:"provider,omitempty"`
+		}
+
+		if v11, err := projectManager.LoadProjectV11(targetProject); err == nil {
+			tasks := make([]taskJSON, 0, len(v11.Tasks))
+			for _, task := range v11.Tasks {
+				tasks = append(tasks, taskJSON{
+					ID:         task.ID,
+					Text:       task.Name,
+					Status:     task.Status,
+					Done:       task.Status == "DONE",
+					AssignedTo: task.AssignedTo,
+					DependsOn:  task.DependsOn,
+					Provider:   task.Behavior.Environment.Provider,
+				})
+			}
+			payload, _ := json.Marshal(tasks)
+			fmt.Println(string(payload))
+			return nil
+		}
+
+		legacy, err := projectManager.LoadProjectData(targetProject)
+		if err != nil {
+			return fmt.Errorf("failed to load project: %w", err)
+		}
+
+		tasks := make([]taskJSON, 0, len(legacy.Tasks))
+		for _, task := range legacy.Tasks {
+			tasks = append(tasks, taskJSON{
+				ID:         task.ID,
+				Text:       task.Text,
+				Status:     GetTaskStatus(task),
+				Done:       task.Done,
+				AssignedTo: task.AssignedTo,
+				DependsOn:  task.DependsOn,
+				Provider:   task.Behavior.Environment.Provider,
+			})
+		}
+
+		payload, _ := json.Marshal(tasks)
+		fmt.Println(string(payload))
+		return nil
+	}
+
 	taskViews, isV11, err := projectManager.GetTaskViews(targetProject)
 	if err != nil {
 		return fmt.Errorf("failed to load project: %w", err)
 	}
-	
+
 	fmt.Printf("Tasks in project '%s':\n", targetProject)
 	// We might need to load metadata for archived status if not in TaskView
 	if !isV11 {
@@ -74,16 +127,16 @@ func listProjectTasks(targetProject string, showAll bool) error {
 		}
 	}
 	fmt.Println()
-	
+
 	if len(taskViews) == 0 {
 		fmt.Println("  No tasks yet. Add one with 'quickplan add <task>'")
 		return nil
 	}
-	
+
 	// Separate incomplete and completed tasks
 	var incompleteTasks []TaskView
 	var completedTasks []TaskView
-	
+
 	for _, task := range taskViews {
 		if task.Status == "DONE" {
 			completedTasks = append(completedTasks, task)
@@ -91,16 +144,16 @@ func listProjectTasks(targetProject string, showAll bool) error {
 			incompleteTasks = append(incompleteTasks, task)
 		}
 	}
-	
+
 	// Sort completed tasks (placeholder for stable ID sorting or date if available in TaskView)
-	
+
 	// Display incomplete tasks
 	if len(incompleteTasks) > 0 {
 		for _, task := range incompleteTasks {
 			fmt.Printf("  %s. [%s] %s\n", task.ID, getStatusIcon(task.Status), task.Text)
 		}
 	}
-	
+
 	// Display completed tasks in a separate block
 	if len(completedTasks) > 0 {
 		if len(incompleteTasks) > 0 {
@@ -111,7 +164,7 @@ func listProjectTasks(targetProject string, showAll bool) error {
 			fmt.Printf("  %s. [✓] %s\n", task.ID, task.Text)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -145,15 +198,78 @@ func listAllProjects(showAll bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to list projects: %w", err)
 	}
-	
+
 	if len(projects) == 0 {
+		if globalJSON {
+			fmt.Println("[]")
+			return nil
+		}
 		fmt.Println("No projects found. Create one with 'quickplan create <name>'")
 		return nil
 	}
-	
+
 	// Sort projects alphabetically
 	sort.Strings(projects)
-	
+
+	if globalJSON {
+		type taskJSON struct {
+			ID         interface{} `json:"id"`
+			Text       string      `json:"text"`
+			Status     string      `json:"status"`
+			Done       bool        `json:"done"`
+			AssignedTo string      `json:"assigned_to,omitempty"`
+			DependsOn  interface{} `json:"depends_on,omitempty"`
+			Provider   string      `json:"provider,omitempty"`
+		}
+
+		type projectJSON struct {
+			Project string     `json:"project"`
+			Tasks   []taskJSON `json:"tasks"`
+		}
+
+		result := make([]projectJSON, 0, len(projects))
+		for _, project := range projects {
+			if v11, err := projectManager.LoadProjectV11(project); err == nil {
+				tasks := make([]taskJSON, 0, len(v11.Tasks))
+				for _, task := range v11.Tasks {
+					tasks = append(tasks, taskJSON{
+						ID:         task.ID,
+						Text:       task.Name,
+						Status:     task.Status,
+						Done:       task.Status == "DONE",
+						AssignedTo: task.AssignedTo,
+						DependsOn:  task.DependsOn,
+						Provider:   task.Behavior.Environment.Provider,
+					})
+				}
+				result = append(result, projectJSON{Project: project, Tasks: tasks})
+				continue
+			}
+
+			legacy, err := projectManager.LoadProjectData(project)
+			if err != nil {
+				continue
+			}
+			tasks := make([]taskJSON, 0, len(legacy.Tasks))
+			for _, task := range legacy.Tasks {
+				tasks = append(tasks, taskJSON{
+					ID:         task.ID,
+					Text:       task.Text,
+					Status:     GetTaskStatus(task),
+					Done:       task.Done,
+					AssignedTo: task.AssignedTo,
+					DependsOn:  task.DependsOn,
+					Provider:   task.Behavior.Environment.Provider,
+				})
+			}
+			result = append(result, projectJSON{Project: project, Tasks: tasks})
+		}
+
+		payload, _ := json.Marshal(result)
+		fmt.Println(string(payload))
+		return nil
+	}
+
 	hasAnyTasks := false
 
 	for i, project := range projects {
@@ -175,10 +291,10 @@ func listAllProjects(showAll bool) error {
 			continue
 		}
 	}
-	
+
 	if !hasAnyTasks {
 		fmt.Println("\nNo tasks found in any project.")
 	}
-	
+
 	return nil
 }

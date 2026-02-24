@@ -86,10 +86,17 @@ var pushCmd = &cobra.Command{
 var pullCmd = &cobra.Command{
 	Use:   "pull [blueprint_id]",
 	Short: "Pull a project blueprint from the registry",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// ... existing pull logic ...
-		blueprintID := args[0]
+		projectFlag, _ := cmd.Flags().GetString("project")
+		blueprintID := projectFlag
+		if blueprintID == "" {
+			if len(args) == 0 {
+				return fmt.Errorf("blueprint ID is required")
+			}
+			blueprintID = args[0]
+		}
 
 		registryURL := os.Getenv("QUICKPLAN_REGISTRY_URL")
 		if registryURL == "" {
@@ -160,7 +167,7 @@ var verifyCmd = &cobra.Command{
 			if task.Text == "" {
 				return fmt.Errorf("task %d has no text description", task.ID)
 			}
-			
+
 			// New AgentBehavior verification
 			if task.Behavior.Role != "" {
 				if task.Behavior.Strategy == "" {
@@ -179,4 +186,5 @@ func init() {
 	syncCmd.AddCommand(pullCmd)
 	syncCmd.AddCommand(verifyCmd)
 	pushCmd.Flags().StringP("project", "p", "", "Project to push")
+	pullCmd.Flags().StringP("project", "p", "", "Project to pull")
 }
