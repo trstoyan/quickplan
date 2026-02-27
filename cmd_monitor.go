@@ -32,7 +32,13 @@ var monitorCmd = &cobra.Command{
 			fmt.Printf("🎯 Filtering for project: %s\n", projectFilter)
 		}
 
-		resp, err := http.Get(streamURL)
+		req, err := http.NewRequest(http.MethodGet, streamURL, nil)
+		if err != nil {
+			return err
+		}
+		applyWebAuth(req)
+
+		resp, err := (&http.Client{}).Do(req)
 		if err != nil {
 			return fmt.Errorf("failed to connect to stream: %w", err)
 		}

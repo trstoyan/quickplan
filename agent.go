@@ -11,6 +11,11 @@ import (
 
 // SendPulse sends a status update to the local web server dashboard
 func SendPulse(project, agentID string, taskID interface{}, status, prevStatus string) {
+	SendPulseWithMessage(project, agentID, taskID, status, prevStatus, "", "")
+}
+
+// SendPulseWithMessage sends a pulse with optional event metadata.
+func SendPulseWithMessage(project, agentID string, taskID interface{}, status, prevStatus, eventType, message string) {
 	pulseURL := os.Getenv("QUICKPLAN_WEB_URL")
 	if pulseURL == "" {
 		pulseURL = "http://localhost:8081"
@@ -22,6 +27,8 @@ func SendPulse(project, agentID string, taskID interface{}, status, prevStatus s
 		TaskID     interface{} `json:"task_id"`
 		Status     string      `json:"status"`
 		PrevStatus string      `json:"prev_status,omitempty"`
+		Type       string      `json:"type,omitempty"`
+		Message    string      `json:"message,omitempty"`
 		Timestamp  string      `json:"timestamp"`
 	}{
 		Project:    project,
@@ -29,6 +36,8 @@ func SendPulse(project, agentID string, taskID interface{}, status, prevStatus s
 		TaskID:     taskID,
 		Status:     status,
 		PrevStatus: prevStatus,
+		Type:       eventType,
+		Message:    message,
 		Timestamp:  time.Now().Format(time.RFC3339),
 	}
 
@@ -39,7 +48,13 @@ func SendPulse(project, agentID string, taskID interface{}, status, prevStatus s
 
 	// Non-blocking pulse send to avoid slowing down the agent
 	go func() {
-		http.Post(pulseURL+"/api/v1/pulse", "application/json", bytes.NewBuffer(data))
+		req, err := http.NewRequest(http.MethodPost, pulseURL+"/api/v1/pulse", bytes.NewBuffer(data))
+		if err != nil {
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		applyWebAuth(req)
+		_, _ = newWebClient(3 * time.Second).Do(req)
 	}()
 }
 

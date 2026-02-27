@@ -46,6 +46,7 @@ func (pdm *ProjectDataManager) ReconcileTaskReadiness(projectName, actorID strin
 			})
 
 			statusByID[task.ID] = "BLOCKED"
+			SendPulseWithMessage(projectName, actor, task.ID, "BLOCKED", task.Status, "TASK_BLOCKED", issue)
 			changed++
 			continue
 		}
@@ -66,6 +67,7 @@ func (pdm *ProjectDataManager) ReconcileTaskReadiness(projectName, actorID strin
 			})
 
 			statusByID[task.ID] = "PENDING"
+			SendPulseWithMessage(projectName, actor, task.ID, "PENDING", task.Status, "TASK_UNBLOCKED", "All dependencies and guard checks are satisfied")
 			changed++
 		}
 	}

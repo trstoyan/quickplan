@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -91,7 +92,14 @@ var pushCmd = &cobra.Command{
 			return err
 		}
 
-		resp, err := http.Post(registryURL+"/api/v1/registry/push", "application/json", bytes.NewBuffer(jsonData))
+		req, err := http.NewRequest(http.MethodPost, registryURL+"/api/v1/registry/push", bytes.NewBuffer(jsonData))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		applyWebAuth(req)
+
+		resp, err := newWebClient(15 * time.Second).Do(req)
 		if err != nil {
 			return fmt.Errorf("failed to connect to registry: %w", err)
 		}
@@ -132,7 +140,13 @@ var pullCmd = &cobra.Command{
 			registryURL = "http://localhost:8081"
 		}
 
-		resp, err := http.Get(registryURL + "/api/v1/registry/pull?id=" + blueprintID)
+		req, err := http.NewRequest(http.MethodGet, registryURL+"/api/v1/registry/pull?id="+blueprintID, nil)
+		if err != nil {
+			return err
+		}
+		applyWebAuth(req)
+
+		resp, err := newWebClient(15 * time.Second).Do(req)
 		if err != nil {
 			return fmt.Errorf("failed to connect to registry: %w", err)
 		}

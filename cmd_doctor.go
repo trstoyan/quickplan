@@ -91,7 +91,15 @@ var doctorCmd = &cobra.Command{
 				registryURL = "http://localhost:8081"
 			}
 			client := http.Client{Timeout: 2 * time.Second}
-			resp, err := client.Get(registryURL + "/api/v1/info")
+			req, reqErr := http.NewRequest(http.MethodGet, registryURL+"/api/v1/info", nil)
+			if reqErr != nil {
+				report["registry"] = map[string]interface{}{"status": "ERROR", "url": registryURL, "message": reqErr.Error()}
+				jsonOut, _ := json.Marshal(report)
+				fmt.Println(string(jsonOut))
+				return nil
+			}
+			applyWebAuth(req)
+			resp, err := client.Do(req)
 			if err != nil {
 				report["registry"] = map[string]interface{}{"status": "ERROR", "url": registryURL, "message": "Unreachable"}
 			} else {
@@ -179,7 +187,13 @@ var doctorCmd = &cobra.Command{
 		}
 
 		client := http.Client{Timeout: 2 * time.Second}
-		resp, err := client.Get(registryURL + "/api/v1/info")
+		req, reqErr := http.NewRequest(http.MethodGet, registryURL+"/api/v1/info", nil)
+		if reqErr != nil {
+			fmt.Printf("❌ %v\n", reqErr)
+			return nil
+		}
+		applyWebAuth(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Printf("❌ UNREACHABLE (%s)\n", registryURL)
 		} else {
