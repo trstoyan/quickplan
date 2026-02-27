@@ -104,15 +104,24 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 			return
 		}
 
-		// Check for tasks with Status: "TODO"
+		// Check for tasks that are runnable according to dependency and guard checks.
+		if _, err := projectManager.ReconcileTaskReadiness(project, "daemon"); err != nil {
+			logger.Log("ERROR", "Daemon", "Failed to reconcile task readiness", map[string]interface{}{
+				"project": project,
+				"error":   err.Error(),
+			})
+			return
+		}
+
 		views, _, err := projectManager.GetTaskViews(project)
 		if err != nil {
 			return
 		}
+		statusByID := buildStatusIndex(views)
 
 		var targetTask *TaskView
 		for _, v := range views {
-			if v.Status == "TODO" && v.AssignedTo == "" {
+			if v.AssignedTo == "" && isTaskRunnable(v, statusByID) {
 				targetTask = &v
 				break
 			}
@@ -155,7 +164,14 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 						"agent": workerID,
 						"error": err.Error(),
 					})
-					projectManager.UpdateTaskStatus(proj, task.ID, "FAILED", workerID)
+					_ = projectManager.UpdateTaskStatus(proj, task.ID, "FAILED", workerID)
+					if _, retryErr := projectManager.ScheduleRetryIfAllowed(proj, task.ID, workerID, err.Error()); retryErr != nil {
+						logger.Log("ERROR", "Daemon", "Failed to schedule retry after setup failure", map[string]interface{}{
+							"project": proj,
+							"task":    task.ID,
+							"error":   retryErr.Error(),
+						})
+					}
 					return
 				}
 
@@ -176,10 +192,22 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 				}
 
 				// Final state transition
-				if err := projectManager.UpdateTaskStatus(proj, task.ID, finalStatus, workerID); err != nil {
+				if statusErr := projectManager.UpdateTaskStatus(proj, task.ID, finalStatus, workerID); statusErr != nil {
 					logger.Log("ERROR", "Daemon", "Failed to update final task status", map[string]interface{}{
-						"error": err.Error(),
+						"error": statusErr.Error(),
 					})
+				} else if finalStatus == "FAILED" {
+					failureReason := "runner execution failed"
+					if err != nil {
+						failureReason = err.Error()
+					}
+					if _, retryErr := projectManager.ScheduleRetryIfAllowed(proj, task.ID, workerID, failureReason); retryErr != nil {
+						logger.Log("ERROR", "Daemon", "Failed to schedule retry", map[string]interface{}{
+							"project": proj,
+							"task":    task.ID,
+							"error":   retryErr.Error(),
+						})
+					}
 				}
 
 				// Teardown if atomic

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -35,32 +36,54 @@ var pushCmd = &cobra.Command{
 		versionManager := NewVersionManager(version)
 		projectManager := NewProjectDataManager(dataDir, versionManager)
 
-		projectData, err := projectManager.LoadProjectData(targetProject)
-		if err != nil {
-			return err
+		blueprintFormat := "legacy"
+		blueprintSchemaVersion := ""
+		var yamlData []byte
+
+		if v11, err := projectManager.LoadProjectV11(targetProject); err == nil {
+			blueprintFormat = "v1.1"
+			blueprintSchemaVersion = "1.1"
+			yamlData, err = yaml.Marshal(v11)
+			if err != nil {
+				return err
+			}
+		} else {
+			projectData, err := projectManager.LoadProjectData(targetProject)
+			if err != nil {
+				return err
+			}
+			yamlData, err = yaml.Marshal(projectData)
+			if err != nil {
+				return err
+			}
 		}
 
-		// Marshal to YAML for the blueprint
-		yamlData, err := yaml.Marshal(projectData)
-		if err != nil {
-			return err
+		blueprintVersion, _ := cmd.Flags().GetString("version")
+		if strings.TrimSpace(blueprintVersion) == "" {
+			blueprintVersion = "1"
 		}
 
 		registryURL := os.Getenv("QUICKPLAN_REGISTRY_URL")
 		if registryURL == "" {
-			registryURL = "http://localhost:8080" // Default for local dev
+			registryURL = "http://localhost:8081" // Default for local dev
 		}
 
 		blueprint := struct {
-			ID          string `json:"id"`
-			Author      string `json:"author"`
-			Description string `json:"description"`
-			YAMLContent string `json:"yaml_content"`
+			ID            string `json:"id"`
+			Author        string `json:"author"`
+			Description   string `json:"description"`
+			YAMLContent   string `json:"yaml_content"`
+			Format        string `json:"format,omitempty"`
+			SchemaVersion string `json:"schema_version,omitempty"`
+			Version       string `json:"version,omitempty"`
 		}{
-			ID:          targetProject,
-			Author:      os.Getenv("USER"),
-			Description: fmt.Sprintf("Project %s pushed from CLI", targetProject),
-			YAMLContent: string(yamlData),
+			ID:            targetProject,
+			Author:        os.Getenv("USER"),
+			Description:   fmt.Sprintf("Project %s pushed from CLI", targetProject),
+			YAMLContent:   string(yamlData),
+			Format:        blueprintFormat,
+			SchemaVersion: blueprintSchemaVersion,
+			Version:       blueprintVersion,
 		}
 
 		jsonData, err := json.Marshal(blueprint)
@@ -88,19 +111,25 @@ var pullCmd = &cobra.Command{
 	Short: "Pull a project blueprint from the registry",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// ... existing pull logic ...
 		projectFlag, _ := cmd.Flags().GetString("project")
-		blueprintID := projectFlag
-		if blueprintID == "" {
-			if len(args) == 0 {
-				return fmt.Errorf("blueprint ID is required")
-			}
+		blueprintID := ""
+		if len(args) > 0 {
 			blueprintID = args[0]
+		} else if projectFlag != "" {
+			blueprintID = projectFlag
+		}
+		if blueprintID == "" {
+			return fmt.Errorf("blueprint ID is required")
+		}
+
+		localProjectName := projectFlag
+		if localProjectName == "" {
+			localProjectName = blueprintID
 		}
 
 		registryURL := os.Getenv("QUICKPLAN_REGISTRY_URL")
 		if registryURL == "" {
-			registryURL = "http://localhost:8080"
+			registryURL = "http://localhost:8081"
 		}
 
 		resp, err := http.Get(registryURL + "/api/v1/registry/pull?id=" + blueprintID)
@@ -114,8 +143,11 @@ var pullCmd = &cobra.Command{
 		}
 
 		var blueprint struct {
-			ID          string `json:"id"`
-			YAMLContent string `json:"yaml_content"`
+			ID            string `json:"id"`
+			YAMLContent   string `json:"yaml_content"`
+			Format        string `json:"format"`
+			SchemaVersion string `json:"schema_version"`
+			Version       string `json:"version"`
 		}
 
 		if err := json.NewDecoder(resp.Body).Decode(&blueprint); err != nil {
@@ -128,17 +160,24 @@ var pullCmd = &cobra.Command{
 			return err
 		}
 
-		projectDir := filepath.Join(dataDir, blueprintID)
+		projectDir := filepath.Join(dataDir, localProjectName)
 		if err := os.MkdirAll(projectDir, 0755); err != nil {
 			return err
 		}
 
-		tasksFile := filepath.Join(projectDir, "tasks.yaml")
-		if err := os.WriteFile(tasksFile, []byte(blueprint.YAMLContent), 0644); err != nil {
+		targetFile := filepath.Join(projectDir, "tasks.yaml")
+		format := strings.ToLower(strings.TrimSpace(blueprint.Format))
+		schemaVersion := strings.TrimSpace(blueprint.SchemaVersion)
+		content := strings.TrimSpace(blueprint.YAMLContent)
+		if schemaVersion == "1.1" || format == "v1.1" || strings.Contains(content, "schema_version: \"1.1\"") || strings.Contains(content, "schema_version: '1.1'") || strings.Contains(content, "schema_version: 1.1") {
+			targetFile = filepath.Join(projectDir, "project.yaml")
+		}
+
+		if err := os.WriteFile(targetFile, []byte(blueprint.YAMLContent), 0644); err != nil {
 			return err
 		}
 
-		fmt.Printf("Successfully pulled blueprint '%s' and created project\n", blueprintID)
+		fmt.Printf("Successfully pulled blueprint '%s' (v%s) into project '%s'\n", blueprintID, blueprint.Version, localProjectName)
 		return nil
 	},
 }
@@ -154,9 +193,28 @@ var verifyCmd = &cobra.Command{
 			return fmt.Errorf("failed to read file: %w", err)
 		}
 
+		var schemaProbe struct {
+			SchemaVersion string `yaml:"schema_version"`
+		}
+		if err := yaml.Unmarshal(data, &schemaProbe); err != nil {
+			return fmt.Errorf("invalid YAML format: %w", err)
+		}
+
+		if schemaProbe.SchemaVersion == "1.1" {
+			var projectV11 ProjectV11
+			if err := yaml.Unmarshal(data, &projectV11); err != nil {
+				return fmt.Errorf("invalid v1.1 YAML format: %w", err)
+			}
+			if err := ValidateProjectV11(&projectV11); err != nil {
+				return fmt.Errorf("v1.1 validation failed: %w", err)
+			}
+			fmt.Printf("✅ Project DNA verified: %s is v1.1 protocol compatible\n", filePath)
+			return nil
+		}
+
 		var projectData ProjectData
 		if err := yaml.Unmarshal(data, &projectData); err != nil {
-			return fmt.Errorf("invalid YAML format: %w", err)
+			return fmt.Errorf("invalid legacy YAML format: %w", err)
 		}
 
 		// Basic validation of required fields for Multi-Agent Protocol
@@ -186,5 +244,6 @@ func init() {
 	syncCmd.AddCommand(pullCmd)
 	syncCmd.AddCommand(verifyCmd)
 	pushCmd.Flags().StringP("project", "p", "", "Project to push")
-	pullCmd.Flags().StringP("project", "p", "", "Project to pull")
+	pushCmd.Flags().String("version", "1", "Blueprint version for registry immutability")
+	pullCmd.Flags().StringP("project", "p", "", "Local project name override (defaults to blueprint ID)")
 }

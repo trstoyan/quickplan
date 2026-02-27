@@ -12,9 +12,14 @@ In version 1.2, the legacy bash-based worker loops and guard scripts were purged
 
 ### Native State Transitions
 The daemon now handles task execution using a robust state machine:
-- **TODO:** Initial state for tasks.
-- **IN_PROGRESS:** Set by the daemon before dispatching to a `Runner`.
+- **PENDING/TODO:** Initial runnable state.
+- **BLOCKED:** Applied automatically when dependencies/guards fail.
+- **IN_PROGRESS:** Set by daemon/swarm before dispatching to a `Runner`.
 - **DONE:** Set after successful `Runner` execution.
 - **FAILED:** Set if the `Runner` returns an error.
+- **RETRYING:** Applied when retry policy allows automatic retry.
+- **CANCELLED:** Explicit stop state.
+
+For v1.1 tasks with `retry_policy`, failures can transition `FAILED -> RETRYING -> PENDING` after backoff.
 
 This transition logic is handled atomically by the `ProjectDataManager` to ensure tasks are never executed more than once.

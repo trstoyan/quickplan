@@ -23,9 +23,9 @@ PROJECT="my-agent-project"
 # The agent requests the current task list in JSON format
 STATE=$(quickplan list --project "$PROJECT" --json)
 
-# 2. Parse Todo Tasks
+# 2. Parse Runnable Tasks
 # Use jq to extract tasks that are ready to be worked on
-TODO_TASKS=$(echo "$STATE" | jq -r '.tasks[] | select(.status == "TODO") | .id + ": " + .text')
+TODO_TASKS=$(echo "$STATE" | jq -r '.tasks[] | select(.status == "TODO" or .status == "PENDING") | .id + ": " + .text')
 
 if [ -z "$TODO_TASKS" ]; then
   echo "No todo tasks. Agent sleeping."
@@ -46,8 +46,8 @@ TASK_ID="t-1"
 RESPONSE=$(quickplan complete "$TASK_ID" --project "$PROJECT" --json)
 
 # 5. Verify Result
-SUCCESS=$(echo "$RESPONSE" | jq -r '.success')
-if [ "$SUCCESS" == "true" ]; then
+STATUS=$(echo "$RESPONSE" | jq -r '.status')
+if [ "$STATUS" == "success" ]; then
   echo "Agent successfully completed task $TASK_ID"
 fi
 ```

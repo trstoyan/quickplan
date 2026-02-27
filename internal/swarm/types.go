@@ -17,12 +17,14 @@ type AgentBehavior struct {
 
 // TaskView is a unified view of a task regardless of schema version.
 type TaskView struct {
-	ID         string
-	Text       string
-	Status     string
-	AssignedTo string
-	DependsOn  []string
-	WatchPath  string // legacy compat
-	Behavior   AgentBehavior
-	IsV11      bool
+	ID            string
+	Text          string
+	Status        string
+	AssignedTo    string
+	DependsOn     []string
+	WatchPath     string // legacy compat
+	WatchPaths    []string
+	RequiresFiles []string
+	Behavior      AgentBehavior
+	IsV11         bool
 }

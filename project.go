@@ -43,6 +43,9 @@ func GetTaskStatus(task Task) string {
 	if task.Done {
 		return "DONE"
 	}
+	if isValidStatus(task.Status) {
+		return task.Status
+	}
 	for _, note := range task.Notes {
 		if strings.Contains(strings.ToUpper(note.Text), "BLOCKED") {
 			return "BLOCKED"
@@ -356,14 +359,22 @@ func (pdm *ProjectDataManager) GetTaskViews(projectName string) ([]TaskView, boo
 	if err == nil {
 		views := make([]TaskView, len(v11.Tasks))
 		for i, t := range v11.Tasks {
+			watchPath := ""
+			if len(t.Watch.Paths) > 0 {
+				watchPath = t.Watch.Paths[0]
+			}
+
 			views[i] = TaskView{
-				ID:         t.ID,
-				Text:       t.Name,
-				Status:     t.Status,
-				AssignedTo: t.AssignedTo,
-				DependsOn:  t.DependsOn,
-				Behavior:   t.Behavior,
-				IsV11:      true,
+				ID:            t.ID,
+				Text:          t.Name,
+				Status:        t.Status,
+				AssignedTo:    t.AssignedTo,
+				DependsOn:     t.DependsOn,
+				WatchPath:     watchPath,
+				WatchPaths:    append([]string{}, t.Watch.Paths...),
+				RequiresFiles: append([]string{}, t.Watch.RequiresFiles...),
+				Behavior:      t.Behavior,
+				IsV11:         true,
 			}
 		}
 		return views, true, nil
@@ -384,14 +395,16 @@ func (pdm *ProjectDataManager) GetTaskViews(projectName string) ([]TaskView, boo
 		}
 
 		views[i] = TaskView{
-			ID:         fmt.Sprintf("t-%d", t.ID),
-			Text:       t.Text,
-			Status:     GetTaskStatus(t),
-			AssignedTo: t.AssignedTo,
-			DependsOn:  deps,
-			WatchPath:  t.WatchPath,
-			Behavior:   t.Behavior,
-			IsV11:      false,
+			ID:            fmt.Sprintf("t-%d", t.ID),
+			Text:          t.Text,
+			Status:        GetTaskStatus(t),
+			AssignedTo:    t.AssignedTo,
+			DependsOn:     deps,
+			WatchPath:     t.WatchPath,
+			WatchPaths:    []string{t.WatchPath},
+			RequiresFiles: nil,
+			Behavior:      t.Behavior,
+			IsV11:         false,
 		}
 	}
 	return views, false, nil
@@ -571,33 +584,59 @@ func (pdm *ProjectDataManager) SaveProjectConfig(projectName string, config *Pro
 
 // UpdateTaskStatus updates the status and assigned agent of a specific task.
 func (pdm *ProjectDataManager) UpdateTaskStatus(projectName, taskID, status, agentID string) error {
+	views, isV11, err := pdm.GetTaskViews(projectName)
+	if err != nil {
+		return err
+	}
+	statusByID := buildStatusIndex(views)
+
+	var targetTask *TaskView
+	for i := range views {
+		if views[i].ID == taskID {
+			targetTask = &views[i]
+			break
+		}
+	}
+	if targetTask == nil {
+		return fmt.Errorf("task %s not found in project %s", taskID, projectName)
+	}
+
+	if err := validateTaskStatusTransition(*targetTask, status, statusByID); err != nil {
+		return err
+	}
+	actor := strings.TrimSpace(agentID)
+	if actor == "" {
+		actor = "system"
+	}
+
 	// Try v1.1 first
-	if v11, err := pdm.LoadProjectV11(projectName); err == nil {
-		found := false
+	if isV11 {
+		v11, err := pdm.LoadProjectV11(projectName)
+		if err != nil {
+			return err
+		}
 		for i := range v11.Tasks {
 			if v11.Tasks[i].ID == taskID {
 				prevStatus := v11.Tasks[i].Status
 				v11.Tasks[i].Status = status
-				v11.Tasks[i].AssignedTo = agentID
+				if agentID != "" {
+					v11.Tasks[i].AssignedTo = agentID
+				}
 				v11.Tasks[i].UpdatedAt = time.Now()
 
 				v11.Events = append(v11.Events, Event{
 					Timestamp:  time.Now(),
 					Type:       "TASK_STATUS_CHANGED",
-					Actor:      agentID,
+					Actor:      actor,
 					TaskID:     taskID,
 					PrevStatus: prevStatus,
 					NextStatus: status,
 					Message:    fmt.Sprintf("Status updated to %s", status),
 				})
-				found = true
-				break
+				return pdm.SaveProjectV11(projectName, v11)
 			}
 		}
-		if !found {
-			return fmt.Errorf("task %s not found in project %s", taskID, projectName)
-		}
-		return pdm.SaveProjectV11(projectName, v11)
+		return fmt.Errorf("task %s not found in project %s", taskID, projectName)
 	}
 
 	// Fallback to legacy
@@ -615,17 +654,22 @@ func (pdm *ProjectDataManager) UpdateTaskStatus(projectName, taskID, status, age
 	for i := range projectData.Tasks {
 		if projectData.Tasks[i].ID == id {
 			prevStatus := GetTaskStatus(projectData.Tasks[i])
+			projectData.Tasks[i].Status = status
 			projectData.Tasks[i].Done = (status == "DONE")
-			projectData.Tasks[i].AssignedTo = agentID
+			if agentID != "" {
+				projectData.Tasks[i].AssignedTo = agentID
+			}
 			if projectData.Tasks[i].Done {
 				now := time.Now()
 				projectData.Tasks[i].Completed = &now
+			} else {
+				projectData.Tasks[i].Completed = nil
 			}
 
 			pdm.AppendEvent(projectName, Event{
 				Timestamp:  time.Now(),
 				Type:       "TASK_STATUS_CHANGED",
-				Actor:      agentID,
+				Actor:      actor,
 				TaskID:     taskID,
 				PrevStatus: prevStatus,
 				NextStatus: status,

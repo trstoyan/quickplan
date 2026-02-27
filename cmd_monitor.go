@@ -22,7 +22,7 @@ var monitorCmd = &cobra.Command{
 		asJSON, _ := cmd.Flags().GetBool("json")
 
 		if baseURL == "" {
-			baseURL = "http://localhost:8080"
+			baseURL = "http://localhost:8081"
 		}
 
 		streamURL := fmt.Sprintf("%s/api/v1/pulse/stream", baseURL)
@@ -95,7 +95,7 @@ var monitorCmd = &cobra.Command{
 
 func init() {
 	monitorCmd.Flags().StringP("project", "p", "", "Filter by project name")
-	monitorCmd.Flags().String("url", "http://localhost:8080", "Registry base URL")
+	monitorCmd.Flags().String("url", "http://localhost:8081", "Registry base URL")
 	monitorCmd.Flags().Bool("json", false, "Output as raw JSON lines")
 }
 

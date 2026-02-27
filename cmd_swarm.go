@@ -11,14 +11,10 @@ import (
 	"github.com/trstoyan/quickplan/internal/swarm"
 )
 
-// AgentRunner defines the interface for running agents
-type AgentRunner interface {
-	Start(project, agentID, scriptPath string) error
-}
-
-// BackgroundRunner implements AgentRunner using os/exec
+// BackgroundRunner executes workers asynchronously.
 type BackgroundRunner struct {
-	Logger *swarm.EventLogger
+	Logger         *swarm.EventLogger
+	ProjectManager *ProjectDataManager
 }
 
 // Start starts a worker agent using the appropriate runner
@@ -35,7 +31,9 @@ func (br *BackgroundRunner) Start(project, agentID string, task *TaskView) error
 	go func() {
 		// Native execution
 		output, err := runner.Execute("", task)
+		finalStatus := "DONE"
 		if err != nil {
+			finalStatus = "FAILED"
 			if br.Logger != nil {
 				br.Logger.Log("ERROR", "Swarm", fmt.Sprintf("Runner execution failed for %s", agentID), map[string]interface{}{
 					"error":  err.Error(),
@@ -46,9 +44,30 @@ func (br *BackgroundRunner) Start(project, agentID string, task *TaskView) error
 			}
 		}
 
+		if task.ID != "default" && br.ProjectManager != nil {
+			if statusErr := br.ProjectManager.UpdateTaskStatus(project, task.ID, finalStatus, agentID); statusErr != nil {
+				if br.Logger != nil {
+					br.Logger.Log("ERROR", "Swarm", fmt.Sprintf("Failed to set final status for %s", task.ID), map[string]interface{}{
+						"status": finalStatus,
+						"error":  statusErr.Error(),
+					})
+				}
+			} else if finalStatus == "FAILED" {
+				failureReason := "runner execution failed"
+				if err != nil {
+					failureReason = err.Error()
+				}
+				if _, retryErr := br.ProjectManager.ScheduleRetryIfAllowed(project, task.ID, agentID, failureReason); retryErr != nil && br.Logger != nil {
+					br.Logger.Log("ERROR", "Swarm", fmt.Sprintf("Failed to schedule retry for %s", task.ID), map[string]interface{}{
+						"error": retryErr.Error(),
+					})
+				}
+			}
+		}
+
 		// In a real swarm, we'd wait for completion before teardown
 		// For now, we teardown if it's an atomic lifecycle
-		if task.Behavior.LifeCycle == "Atomic" {
+		if task.Behavior.LifeCycle == "Atomic" || task.Behavior.LifeCycle == "" {
 			runner.Teardown(task)
 		}
 	}()
@@ -92,15 +111,14 @@ var swarmStartCmd = &cobra.Command{
 			return fmt.Errorf("system bridge directory %s does not exist", bridgeDir)
 		}
 
-		// 3. Load Project and tasks to determine environments
+		// 3. Load Project manager
 		projectManager := NewProjectDataManager(dataDir, NewVersionManager(version))
-		views, _, err := projectManager.GetTaskViews(projectName)
-		if err != nil {
-			return err
-		}
 
 		// 4. Start Workers
-		runner := &BackgroundRunner{Logger: logger}
+		runner := &BackgroundRunner{
+			Logger:         logger,
+			ProjectManager: projectManager,
+		}
 
 		if !globalJSON {
 			fmt.Printf("Initializing Swarm for project '%s' with %d workers...\n", projectName, workers)
@@ -109,10 +127,21 @@ var swarmStartCmd = &cobra.Command{
 		for i := 1; i <= workers; i++ {
 			agentID := fmt.Sprintf("worker-%d", i)
 
-			// Simple allocation: find next todo task or default to local
+			if _, err := projectManager.ReconcileTaskReadiness(projectName, "swarm"); err != nil {
+				logger.Log("ERROR", "Swarm", "Failed to reconcile task readiness", map[string]interface{}{"error": err.Error()})
+				continue
+			}
+
+			views, _, err := projectManager.GetTaskViews(projectName)
+			if err != nil {
+				return err
+			}
+			statusByID := buildStatusIndex(views)
+
+			// Find next runnable task or default to local.
 			var targetTask *TaskView
 			for _, v := range views {
-				if v.Status == "TODO" && (v.AssignedTo == "" || v.AssignedTo == agentID) {
+				if (v.AssignedTo == "" || v.AssignedTo == agentID) && isTaskRunnable(v, statusByID) {
 					targetTask = &v
 					break
 				}
@@ -128,8 +157,21 @@ var swarmStartCmd = &cobra.Command{
 				}
 			}
 
+			if targetTask.ID != "default" {
+				if err := projectManager.UpdateTaskStatus(projectName, targetTask.ID, "IN_PROGRESS", agentID); err != nil {
+					logger.Log("ERROR", "Swarm", fmt.Sprintf("Failed to mark task %s as IN_PROGRESS", targetTask.ID), map[string]interface{}{"error": err.Error()})
+					continue
+				}
+			}
+
 			if err := runner.Start(projectName, agentID, targetTask); err != nil {
 				logger.Log("ERROR", "Swarm", fmt.Sprintf("Failed to start worker %d", i), map[string]interface{}{"error": err.Error()})
+				if targetTask.ID != "default" {
+					_ = projectManager.UpdateTaskStatus(projectName, targetTask.ID, "FAILED", agentID)
+					if _, retryErr := projectManager.ScheduleRetryIfAllowed(projectName, targetTask.ID, agentID, err.Error()); retryErr != nil {
+						logger.Log("ERROR", "Swarm", fmt.Sprintf("Failed to schedule retry for %s", targetTask.ID), map[string]interface{}{"error": retryErr.Error()})
+					}
+				}
 			}
 			time.Sleep(200 * time.Millisecond)
 		}

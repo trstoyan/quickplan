@@ -38,35 +38,22 @@ displays an interactive menu to select a task to complete.`,
 		projectManager := NewProjectDataManager(dataDir, versionManager)
 
 		// Try v1.1 first
-		if v11, err := projectManager.LoadProjectV11(targetProject); err == nil {
+		if _, err := projectManager.LoadProjectV11(targetProject); err == nil {
 			if len(args) == 0 {
 				return fmt.Errorf("task ID is required for v1.1 projects")
 			}
 			taskID := args[0]
+
+			views, _, err := projectManager.GetTaskViews(targetProject)
+			if err != nil {
+				return err
+			}
+
+			prevStatus := ""
 			found := false
-			for i := range v11.Tasks {
-				if v11.Tasks[i].ID == taskID {
-					if v11.Tasks[i].Status == "DONE" {
-						return fmt.Errorf("task %s is already completed", taskID)
-					}
-					prevStatus := v11.Tasks[i].Status
-					v11.Tasks[i].Status = "DONE"
-					v11.Tasks[i].UpdatedAt = time.Now()
-
-					// Emit event
-					v11.Events = append(v11.Events, Event{
-						Timestamp:  time.Now(),
-						Type:       "TASK_STATUS_CHANGED",
-						Actor:      "human",
-						TaskID:     taskID,
-						PrevStatus: prevStatus,
-						NextStatus: "DONE",
-						Message:    "Task marked as completed",
-					})
-
-					// Emit pulse
-					SendPulse(targetProject, "human", taskID, "DONE", prevStatus)
-
+			for _, v := range views {
+				if v.ID == taskID {
+					prevStatus = v.Status
 					found = true
 					break
 				}
@@ -74,9 +61,13 @@ displays an interactive menu to select a task to complete.`,
 			if !found {
 				return fmt.Errorf("task %s not found", taskID)
 			}
-			if err := projectManager.SaveProjectV11(targetProject, v11); err != nil {
-				return fmt.Errorf("failed to save project v1.1: %w", err)
+
+			if err := completeTaskWithTransitions(projectManager, targetProject, taskID, prevStatus, "human"); err != nil {
+				return err
 			}
+
+			SendPulse(targetProject, "human", taskID, "DONE", prevStatus)
+
 			if globalJSON {
 				output := map[string]interface{}{
 					"status":  "success",
@@ -114,7 +105,8 @@ displays an interactive menu to select a task to complete.`,
 			return nil
 		}
 
-		var taskToComplete *Task
+		var selectedTaskID int
+		var prevStatus string
 
 		if len(args) > 0 {
 			// Task ID provided directly
@@ -130,7 +122,8 @@ displays an interactive menu to select a task to complete.`,
 					if projectData.Tasks[i].Done {
 						return fmt.Errorf("task %d is already completed", taskID)
 					}
-					taskToComplete = &projectData.Tasks[i]
+					selectedTaskID = taskID
+					prevStatus = GetTaskStatus(projectData.Tasks[i])
 					found = true
 					break
 				}
@@ -176,7 +169,8 @@ displays an interactive menu to select a task to complete.`,
 					if projectData.Tasks[i].Done {
 						return fmt.Errorf("task %d is already completed", selected.taskID)
 					}
-					taskToComplete = &projectData.Tasks[i]
+					selectedTaskID = selected.taskID
+					prevStatus = GetTaskStatus(projectData.Tasks[i])
 					found = true
 					break
 				}
@@ -187,45 +181,40 @@ displays an interactive menu to select a task to complete.`,
 			}
 		}
 
-		// Mark task as completed
-		prevStatus := GetTaskStatus(*taskToComplete)
-		taskToComplete.Done = true
-		now := time.Now()
-		taskToComplete.Completed = &now
+		taskIDKey := fmt.Sprintf("t-%d", selectedTaskID)
+		if err := completeTaskWithTransitions(projectManager, targetProject, taskIDKey, prevStatus, "human"); err != nil {
+			return err
+		}
 
 		noteText, _ := cmd.Flags().GetString("note")
 		if noteText != "" {
-			taskToComplete.Notes = append(taskToComplete.Notes, NoteEntry{
-				Text:      noteText,
-				Timestamp: now,
-			})
+			reloaded, err := projectManager.LoadProjectData(targetProject)
+			if err != nil {
+				return fmt.Errorf("failed to reload project data for note update: %w", err)
+			}
+			for i := range reloaded.Tasks {
+				if reloaded.Tasks[i].ID == selectedTaskID {
+					reloaded.Tasks[i].Notes = append(reloaded.Tasks[i].Notes, NoteEntry{
+						Text:      noteText,
+						Timestamp: time.Now(),
+					})
+					break
+				}
+			}
+			if err := projectManager.SaveProjectData(targetProject, reloaded); err != nil {
+				return fmt.Errorf("failed to save note update: %w", err)
+			}
 		}
-
-		// Save project data
-		if err := projectManager.SaveProjectData(targetProject, projectData); err != nil {
-			return fmt.Errorf("failed to save project data: %w", err)
-		}
-
-		// Emit event
-		projectManager.AppendEvent(targetProject, Event{
-			Timestamp:  now,
-			Type:       "TASK_STATUS_CHANGED",
-			Actor:      "human",
-			TaskID:     fmt.Sprintf("t-%d", taskToComplete.ID),
-			PrevStatus: prevStatus,
-			NextStatus: "DONE",
-			Message:    "Task marked as completed",
-		})
 
 		// Emit pulse
-		SendPulse(targetProject, "human", taskToComplete.ID, "DONE", prevStatus)
+		SendPulse(targetProject, "human", selectedTaskID, "DONE", prevStatus)
 
 		if globalJSON {
 			output := map[string]interface{}{
 				"status":  "success",
 				"project": targetProject,
 				"task": map[string]interface{}{
-					"id":     taskToComplete.ID,
+					"id":     selectedTaskID,
 					"status": "DONE",
 					"done":   true,
 				},
@@ -235,7 +224,7 @@ displays an interactive menu to select a task to complete.`,
 			return nil
 		}
 
-		fmt.Printf("Completed task: %s\n", taskToComplete.Text)
+		fmt.Printf("Completed task: %d\n", selectedTaskID)
 		return nil
 	},
 }
@@ -243,4 +232,30 @@ displays an interactive menu to select a task to complete.`,
 func init() {
 	completeCmd.Flags().StringP("project", "p", "", "Complete task in this project instead of current")
 	completeCmd.Flags().StringP("note", "n", "", "Add a note to the completed task")
+}
+
+func completeTaskWithTransitions(projectManager *ProjectDataManager, projectName, taskID, currentStatus, actor string) error {
+	current := canonicalStatus(currentStatus)
+	if current == "DONE" {
+		return fmt.Errorf("task %s is already completed", taskID)
+	}
+
+	switch current {
+	case "PENDING":
+		if err := projectManager.UpdateTaskStatus(projectName, taskID, "IN_PROGRESS", actor); err != nil {
+			return err
+		}
+	case "IN_PROGRESS":
+		// already in execution state
+	case "BLOCKED":
+		return fmt.Errorf("task %s is BLOCKED; resolve dependencies/guards first", taskID)
+	default:
+		return fmt.Errorf("task %s cannot be completed from status %s", taskID, currentStatus)
+	}
+
+	if err := projectManager.UpdateTaskStatus(projectName, taskID, "DONE", actor); err != nil {
+		return err
+	}
+
+	return nil
 }

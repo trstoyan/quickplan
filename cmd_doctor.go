@@ -88,7 +88,7 @@ var doctorCmd = &cobra.Command{
 			// 4. Registry
 			registryURL := os.Getenv("QUICKPLAN_REGISTRY_URL")
 			if registryURL == "" {
-				registryURL = "http://localhost:8080"
+				registryURL = "http://localhost:8081"
 			}
 			client := http.Client{Timeout: 2 * time.Second}
 			resp, err := client.Get(registryURL + "/api/v1/info")
@@ -175,7 +175,7 @@ var doctorCmd = &cobra.Command{
 		fmt.Print("  [4/4] Registry status: ")
 		registryURL := os.Getenv("QUICKPLAN_REGISTRY_URL")
 		if registryURL == "" {
-			registryURL = "http://localhost:8080"
+			registryURL = "http://localhost:8081"
 		}
 
 		client := http.Client{Timeout: 2 * time.Second}

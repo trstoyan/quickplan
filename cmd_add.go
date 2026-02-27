@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -57,9 +59,9 @@ Wrap the task in single quotes or escape ! if your text includes it.`,
 					deps[i] = fmt.Sprintf("t-%d", d)
 				}
 
-				// Generate ID (find max)
+				// Generate ID from max numeric suffix to avoid collisions after deletions.
 				newTask := TaskV11{
-					ID:         fmt.Sprintf("t-%d", len(v11.Tasks)+1), // simple for now
+					ID:         fmt.Sprintf("t-%d", nextV11TaskNumericID(v11.Tasks)),
 					Name:       taskText,
 					Status:     "TODO",
 					AssignedTo: assignedTo,
@@ -127,6 +129,7 @@ Wrap the task in single quotes or escape ! if your text includes it.`,
 				ID:         maxID + 1,
 				Text:       taskText,
 				Done:       false,
+				Status:     "TODO",
 				Created:    time.Now(),
 				Completed:  nil,
 				AssignedTo: assignedTo,
@@ -188,4 +191,15 @@ func init() {
 	addCmd.Flags().String("lifecycle", "", "Lifecycle for the agent behavior (e.g., Atomic, Infinite)")
 	addCmd.Flags().String("strategy", "", "Strategy for the agent behavior (e.g., TDD, Fast Prototype)")
 	addCmd.Flags().String("watch-path", "", "Physical file path to watch for dependency verification")
+}
+
+func nextV11TaskNumericID(tasks []TaskV11) int {
+	maxID := 0
+	for _, t := range tasks {
+		raw := strings.TrimPrefix(t.ID, "t-")
+		if id, err := strconv.Atoi(raw); err == nil && id > maxID {
+			maxID = id
+		}
+	}
+	return maxID + 1
 }

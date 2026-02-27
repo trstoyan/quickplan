@@ -41,6 +41,7 @@ type Task struct {
 	ID           int           `yaml:"id"`
 	Text         string        `yaml:"text"`
 	Done         bool          `yaml:"done"`
+	Status       string        `yaml:"status,omitempty"`
 	Created      time.Time     `yaml:"created"`
 	Completed    *time.Time    `yaml:"completed,omitempty"`
 	Notes        []NoteEntry   `yaml:"notes,omitempty"`

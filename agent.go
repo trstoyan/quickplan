@@ -13,7 +13,7 @@ import (
 func SendPulse(project, agentID string, taskID interface{}, status, prevStatus string) {
 	pulseURL := os.Getenv("QUICKPLAN_WEB_URL")
 	if pulseURL == "" {
-		pulseURL = "http://localhost:8080"
+		pulseURL = "http://localhost:8081"
 	}
 
 	pulse := struct {
