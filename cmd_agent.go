@@ -92,8 +92,11 @@ var agentRunCmd = &cobra.Command{
 			return fmt.Errorf("task %s not found", taskIDStr)
 		}
 
-		if strings.HasPrefix(target.AssignedTo, "plugin:") {
-			pluginName := strings.TrimPrefix(target.AssignedTo, "plugin:")
+		pluginName := strings.TrimSpace(target.Behavior.Plugin)
+		if pluginName == "" && strings.HasPrefix(strings.TrimSpace(target.AssignedTo), "plugin:") {
+			pluginName = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(target.AssignedTo), "plugin:"))
+		}
+		if pluginName != "" {
 			fmt.Printf("🔌 Executing plugin: %s\n", pluginName)
 
 			req := PluginRequest{

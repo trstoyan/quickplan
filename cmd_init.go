@@ -105,11 +105,25 @@ var initCmd = &cobra.Command{
 				role = "Generalist"
 			}
 
+			command := ""
+			for {
+				fmt.Print("  Execution Command (required): ")
+				if !scanner.Scan() {
+					return fmt.Errorf("failed to read execution command")
+				}
+				command = strings.TrimSpace(scanner.Text())
+				if command != "" {
+					break
+				}
+				fmt.Println("  Command cannot be empty.")
+			}
+
 			newTask := Task{
 				ID:   len(projectData.Tasks) + 1,
 				Text: taskText,
 				Behavior: AgentBehavior{
-					Role: role,
+					Role:    role,
+					Command: command,
 				},
 				Created: time.Now(),
 			}

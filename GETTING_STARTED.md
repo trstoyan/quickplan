@@ -27,19 +27,35 @@ Set your registry endpoint to the new persistent Go backend:
 export QUICKPLAN_REGISTRY_URL="https://registry.quickplan.sh"
 ```
 
-## 3. Spawn the Swarm (The Easy Way)
-Instead of manual terminal windows, use the built-in orchestrator:
+## 3. Add Runnable Tasks
+
+Workers now require an explicit execution contract per runnable task.
 
 ```bash
-quickplan swarm start --workers 3
+quickplan add "Run tests" --project my-swarm --command "go test ./..."
+quickplan add "Generate docs" --project my-swarm --command "make docs"
+```
+
+You can also route work to plugins:
+
+```bash
+quickplan add "Security scan" --project my-swarm --plugin secscan
+```
+
+## 4. Spawn the Swarm
+
+Use the built-in orchestrator:
+
+```bash
+quickplan swarm start --project my-swarm --workers 3 --poll-interval 500ms --max-idle 30s
 ```
 
 The CLI will:
-1. Extract the `qp-loop.sh` worker logic.
-2. Initialize the background agent pool.
-3. Start the **Supervisor** to monitor for blocked tasks.
+1. Validate that runnable tasks define `behavior.command` or plugin execution.
+2. Start persistent workers that keep claiming runnable tasks.
+3. Continue until the project reaches terminal state or stall timeout.
 
-## 4. Advanced: Sandboxed Execution
+## 5. Advanced: Sandboxed Execution
 If you have **Daytona** installed, you can run tasks in isolated environments:
 
 ```bash
@@ -54,7 +70,17 @@ tasks:
 
 When the worker picks up this task, it will automatically spin up a Daytona workspace, execute the command, and tear it down.
 
-## 5. Sync to the Hive
+## 6. Run the Global Daemon (Optional)
+
+For continuous background orchestration:
+
+```bash
+quickplan daemon
+```
+
+The daemon uses the same execution contract and retry/readiness logic as `swarm start`.
+
+## 7. Sync to the Hive
 Ready to share your signed blueprint?
 ```bash
 quickplan sync push --project my-swarm

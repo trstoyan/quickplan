@@ -17,9 +17,12 @@ Quick Plan is a decentralized, local-first orchestration protocol that treats pr
 - **Responsibility:** Manages tasks, dependencies, agent behaviors, and metadata.
 
 ### 2. Execution Layer (The Nerves)
-- **Communication:** Named Pipes (`mkfifo`) for real-time task dispatching.
-- **Reflexes:** `inotify` triggers for reactive execution on file changes.
+- **Communication:** Shared project state (`tasks.yaml` / `project.yaml`) with lock-protected status transitions.
+- **Reflexes:** Readiness reconciliation + periodic/fsnotify scans to discover runnable tasks.
 - **DNA Handshake:** `quickplan agent init` generates system prompts that define agent roles and constraints.
+- **Execution Contract:** Runnable tasks must define either:
+  - `behavior.command` (executed by local/daytona runners)
+  - `behavior.plugin` or `assigned_to: plugin:<name>`
 
 ### 3. Network Layer (The Hive)
 - **Registry:** `quickplan.sh` (Central/Decentralized server)
@@ -30,14 +33,14 @@ Quick Plan utilizes a two-tier management structure:
 
 1. **The Worker (The Muscle):**
    - Focuses on atomic task execution.
-   - Reports status (DONE/BLOCKED) to the Blackboard.
-   - Communicates via pipes and inotify.
+   - Claims tasks by transitioning them to `IN_PROGRESS`.
+   - Executes command/plugin and reports final state (`DONE`/`FAILED`).
 
 2. **The Supervisor (The Brain/Self-Healing):**
    - Monitors the Blackboard for `BLOCKED` states.
    - Analyzes blocker reasons using a "Correction Agent".
    - Injects new sub-tasks into the plan to resolve dependencies or errors.
-   - Ensures the swarm never deadlocks.
+   - Works with stall detection (`--max-idle`) to avoid silent deadlocks.
 
 ## Implementation Details
 
@@ -47,6 +50,7 @@ behavior:
   role: "Senior Go Architect"
   lifecycle: "Atomic"
   strategy: "TDD"
+  command: "go test ./..."
   loop_interval: "30s"
 ```
 
@@ -56,6 +60,6 @@ Agents use native state verification to ensure that both logical (task status) a
 ## Getting Started
 1. Install `quickplan` CLI.
 2. Create a project: `quickplan create my-app`.
-3. Add a task with agent behavior: `quickplan add "Implement Auth" --role "Security Expert" --strategy "Zero Trust" --status "TODO"`.
+3. Add a runnable task: `quickplan add "Implement Auth" --role "Security Expert" --strategy "Zero Trust" --command "go test ./..."`.
 4. Run the daemon: `quickplan daemon`.
-5. The daemon will automatically pick up and execute tasks in the "TODO" state.
+5. The daemon will automatically pick up and execute runnable tasks (`TODO`/`PENDING`) that satisfy dependencies and guards.

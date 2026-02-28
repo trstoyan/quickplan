@@ -51,6 +51,8 @@ Wrap the task in single quotes or escape ! if your text includes it.`,
 				role, _ := cmd.Flags().GetString("role")
 				lifecycle, _ := cmd.Flags().GetString("lifecycle")
 				strategy, _ := cmd.Flags().GetString("strategy")
+				command, _ := cmd.Flags().GetString("command")
+				plugin, _ := cmd.Flags().GetString("plugin")
 				watchPath, _ := cmd.Flags().GetString("watch-path")
 
 				// Map depends_on
@@ -70,6 +72,8 @@ Wrap the task in single quotes or escape ! if your text includes it.`,
 						Role:      role,
 						LifeCycle: lifecycle,
 						Strategy:  strategy,
+						Command:   command,
+						Plugin:    plugin,
 					},
 					Watch: WatchConfig{
 						Paths: []string{watchPath},
@@ -115,6 +119,8 @@ Wrap the task in single quotes or escape ! if your text includes it.`,
 			role, _ := cmd.Flags().GetString("role")
 			lifecycle, _ := cmd.Flags().GetString("lifecycle")
 			strategy, _ := cmd.Flags().GetString("strategy")
+			command, _ := cmd.Flags().GetString("command")
+			plugin, _ := cmd.Flags().GetString("plugin")
 			watchPath, _ := cmd.Flags().GetString("watch-path")
 
 			// Add new task
@@ -138,6 +144,8 @@ Wrap the task in single quotes or escape ! if your text includes it.`,
 					Role:      role,
 					LifeCycle: lifecycle,
 					Strategy:  strategy,
+					Command:   command,
+					Plugin:    plugin,
 				},
 				WatchPath: watchPath,
 			}
@@ -190,6 +198,8 @@ func init() {
 	addCmd.Flags().String("role", "", "Role for the agent behavior")
 	addCmd.Flags().String("lifecycle", "", "Lifecycle for the agent behavior (e.g., Atomic, Infinite)")
 	addCmd.Flags().String("strategy", "", "Strategy for the agent behavior (e.g., TDD, Fast Prototype)")
+	addCmd.Flags().String("command", "", "Execution command for the task")
+	addCmd.Flags().String("plugin", "", "Plugin name to execute for the task (equivalent to assigned-to=plugin:<name>)")
 	addCmd.Flags().String("watch-path", "", "Physical file path to watch for dependency verification")
 }
 

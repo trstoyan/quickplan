@@ -156,63 +156,22 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 					"project": proj,
 				})
 
-				runner := swarm.GetRunner(proj, workerID, &task)
-				runner.SetLogger(logger)
-
-				if err := runner.Setup(&task); err != nil {
-					logger.Log("ERROR", "Daemon", "Runner setup failed", map[string]interface{}{
-						"agent": workerID,
-						"error": err.Error(),
-					})
-					_ = projectManager.UpdateTaskStatus(proj, task.ID, "FAILED", workerID)
-					if _, retryErr := projectManager.ScheduleRetryIfAllowed(proj, task.ID, workerID, err.Error()); retryErr != nil {
-						logger.Log("ERROR", "Daemon", "Failed to schedule retry after setup failure", map[string]interface{}{
-							"project": proj,
-							"task":    task.ID,
-							"error":   retryErr.Error(),
-						})
-					}
-					return
+				taskRunner := &BackgroundRunner{
+					Logger:         logger,
+					ProjectManager: projectManager,
 				}
 
-				// Execute native Go runner
-				result, err := runner.Execute("", &task)
-				finalStatus := "DONE"
-				if err != nil {
-					finalStatus = "FAILED"
-					logger.Log("ERROR", "Daemon", "Runner execution failed", map[string]interface{}{
+				if err := taskRunner.RunTask(proj, workerID, &task); err != nil {
+					logger.Log("ERROR", "Daemon", "Task execution failed", map[string]interface{}{
 						"agent": workerID,
+						"task":  task.ID,
 						"error": err.Error(),
 					})
 				} else {
-					logger.Log("INFO", "Daemon", "Runner execution completed", map[string]interface{}{
-						"agent":  workerID,
-						"result": result,
+					logger.Log("INFO", "Daemon", "Task execution completed", map[string]interface{}{
+						"agent": workerID,
+						"task":  task.ID,
 					})
-				}
-
-				// Final state transition
-				if statusErr := projectManager.UpdateTaskStatus(proj, task.ID, finalStatus, workerID); statusErr != nil {
-					logger.Log("ERROR", "Daemon", "Failed to update final task status", map[string]interface{}{
-						"error": statusErr.Error(),
-					})
-				} else if finalStatus == "FAILED" {
-					failureReason := "runner execution failed"
-					if err != nil {
-						failureReason = err.Error()
-					}
-					if _, retryErr := projectManager.ScheduleRetryIfAllowed(proj, task.ID, workerID, failureReason); retryErr != nil {
-						logger.Log("ERROR", "Daemon", "Failed to schedule retry", map[string]interface{}{
-							"project": proj,
-							"task":    task.ID,
-							"error":   retryErr.Error(),
-						})
-					}
-				}
-
-				// Teardown if atomic
-				if task.Behavior.LifeCycle == "Atomic" || task.Behavior.LifeCycle == "" {
-					runner.Teardown(&task)
 				}
 			}(project, *targetTask, agentID)
 		}

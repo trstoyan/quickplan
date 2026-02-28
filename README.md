@@ -99,6 +99,12 @@ quickplan add "Complete the feature documentation"
 # Add to a specific project
 quickplan add "Review pull request" --project work
 
+# Add an executable task for swarm/daemon workers
+quickplan add "Run unit tests" --command "go test ./..."
+
+# Add a plugin-driven task
+quickplan add "Run security checks" --plugin secscan
+
 # Multiple tasks
 quickplan add "Task one"
 quickplan add "Task two"
@@ -187,6 +193,28 @@ quickplan bdchart
 
 Visualize task completion progress over time with a simple ASCII chart showing incomplete tasks per day.
 
+### Swarm and Daemon Execution Contract
+
+`quickplan swarm start` and `quickplan daemon` now execute real task work only when each runnable task has an execution contract:
+
+- `behavior.command` (shell command)
+- `behavior.plugin` or `assigned_to: plugin:<name>`
+
+If a runnable task has neither, swarm startup fails fast with a validation error.
+
+```bash
+# Example runnable task
+quickplan add "Build binary" --command "go build ./..."
+
+# Start workers until terminal state (DONE/FAILED/CANCELLED)
+quickplan swarm start --workers 3 --poll-interval 500ms --max-idle 30s
+
+# Background engine with the same execution contract rules
+quickplan daemon
+```
+
+Local command execution uses `sh -lc`, so shell operators such as `&&`, `|`, redirects, and quoting are supported.
+
 ### Ignore Patterns
 
 QuickPlan automatically ignores certain directories like `.git` when listing projects. You can customize this behavior:
@@ -219,7 +247,7 @@ quickplan change work
 
 # Add tasks to current or specific project
 quickplan add "Task description"
-quickplan add "Task" --project work
+quickplan add "Task" --project work --command "echo done"
 
 # View tasks (incomplete only, latest 5 completed shown at bottom)
 quickplan list
@@ -271,8 +299,12 @@ tasks:
     created: 2025-11-03T13:07:12Z
     completed: 2025-11-03T14:30:00Z
   - id: 2
-    text: "Review code changes"
+    text: "Review code changes and run tests"
     done: false
+    status: "TODO"
+    behavior:
+      role: "Reviewer"
+      command: "go test ./..."
     created: 2025-11-03T13:08:00Z
 created: 2025-11-03T13:07:12Z
 modified: 2025-11-03T14:30:00Z

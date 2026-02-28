@@ -6,6 +6,8 @@ import (
 )
 
 func TestBackgroundRunnerStart_CompletesTask(t *testing.T) {
+	t.Setenv("QUICKPLAN_DISABLE_LOCAL_SANDBOX", "1")
+
 	pdm, projectName, cleanup := newTransitionTestManager(t)
 	defer cleanup()
 
@@ -21,6 +23,7 @@ func TestBackgroundRunnerStart_CompletesTask(t *testing.T) {
 			Created: time.Now(),
 			Behavior: AgentBehavior{
 				LifeCycle: "Atomic",
+				Command:   "echo done",
 			},
 		},
 	}

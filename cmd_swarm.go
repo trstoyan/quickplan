@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -17,62 +19,108 @@ type BackgroundRunner struct {
 	ProjectManager *ProjectDataManager
 }
 
-// Start starts a worker agent using the appropriate runner
-func (br *BackgroundRunner) Start(project, agentID string, task *TaskView) error {
-	runner := swarm.GetRunner(project, agentID, task)
-	if br.Logger != nil {
-		runner.SetLogger(br.Logger)
+type executionPlan struct {
+	Command    string
+	PluginName string
+}
+
+// RunTask executes a single task synchronously.
+func (br *BackgroundRunner) RunTask(project, agentID string, task *TaskView) error {
+	plan, err := resolveTaskExecution(task)
+	if err != nil {
+		br.logExecutionError(agentID, "Task has no execution contract", err, "")
+		_ = br.finalizeTask(project, agentID, task, "FAILED", err.Error())
+		return err
 	}
 
-	if err := runner.Setup(task); err != nil {
-		return fmt.Errorf("runner setup failed: %w", err)
-	}
+	var (
+		output string
+		runErr error
+	)
 
-	go func() {
-		// Native execution
-		output, err := runner.Execute("", task)
-		finalStatus := "DONE"
-		if err != nil {
-			finalStatus = "FAILED"
-			if br.Logger != nil {
-				br.Logger.Log("ERROR", "Swarm", fmt.Sprintf("Runner execution failed for %s", agentID), map[string]interface{}{
-					"error":  err.Error(),
-					"output": output,
-				})
-			} else {
-				fmt.Printf("❌ Runner execution failed for %s: %v\nOutput: %s\n", agentID, err, output)
-			}
+	if plan.PluginName != "" {
+		output, runErr = executePluginForTask(task, plan.PluginName)
+	} else {
+		runner := swarm.GetRunner(project, agentID, task)
+		if br.Logger != nil {
+			runner.SetLogger(br.Logger)
 		}
 
-		if task.ID != "default" && br.ProjectManager != nil {
-			if statusErr := br.ProjectManager.UpdateTaskStatus(project, task.ID, finalStatus, agentID); statusErr != nil {
-				if br.Logger != nil {
-					br.Logger.Log("ERROR", "Swarm", fmt.Sprintf("Failed to set final status for %s", task.ID), map[string]interface{}{
-						"status": finalStatus,
-						"error":  statusErr.Error(),
-					})
-				}
-			} else if finalStatus == "FAILED" {
-				failureReason := "runner execution failed"
-				if err != nil {
-					failureReason = err.Error()
-				}
-				if _, retryErr := br.ProjectManager.ScheduleRetryIfAllowed(project, task.ID, agentID, failureReason); retryErr != nil && br.Logger != nil {
-					br.Logger.Log("ERROR", "Swarm", fmt.Sprintf("Failed to schedule retry for %s", task.ID), map[string]interface{}{
-						"error": retryErr.Error(),
-					})
-				}
-			}
+		if err := runner.Setup(task); err != nil {
+			runErr = fmt.Errorf("runner setup failed: %w", err)
+		} else {
+			output, runErr = runner.Execute(plan.Command, task)
 		}
 
-		// In a real swarm, we'd wait for completion before teardown
-		// For now, we teardown if it's an atomic lifecycle
+		// Teardown if it's an atomic lifecycle.
 		if task.Behavior.LifeCycle == "Atomic" || task.Behavior.LifeCycle == "" {
-			runner.Teardown(task)
+			_ = runner.Teardown(task)
 		}
-	}()
+	}
 
+	finalStatus := "DONE"
+	failureReason := ""
+	if runErr != nil {
+		finalStatus = "FAILED"
+		failureReason = runErr.Error()
+		br.logExecutionError(agentID, "Task execution failed", runErr, output)
+	}
+
+	if statusErr := br.finalizeTask(project, agentID, task, finalStatus, failureReason); statusErr != nil {
+		if runErr == nil {
+			return statusErr
+		}
+		br.logExecutionError(agentID, "Failed to persist task status after execution error", statusErr, "")
+	}
+
+	return runErr
+}
+
+// Start starts a worker agent asynchronously.
+func (br *BackgroundRunner) Start(project, agentID string, task *TaskView) error {
+	go func() {
+		_ = br.RunTask(project, agentID, task)
+	}()
 	return nil
+}
+
+func (br *BackgroundRunner) finalizeTask(project, agentID string, task *TaskView, finalStatus, failureReason string) error {
+	if task == nil || task.ID == "default" || br.ProjectManager == nil {
+		return nil
+	}
+
+	if err := br.ProjectManager.UpdateTaskStatus(project, task.ID, finalStatus, agentID); err != nil {
+		return err
+	}
+
+	if finalStatus == "FAILED" {
+		if failureReason == "" {
+			failureReason = "task execution failed"
+		}
+		if _, retryErr := br.ProjectManager.ScheduleRetryIfAllowed(project, task.ID, agentID, failureReason); retryErr != nil {
+			return retryErr
+		}
+	}
+	return nil
+}
+
+func (br *BackgroundRunner) logExecutionError(agentID, message string, err error, output string) {
+	if br.Logger != nil {
+		fields := map[string]interface{}{
+			"error": err.Error(),
+			"agent": agentID,
+		}
+		if output != "" {
+			fields["output"] = output
+		}
+		br.Logger.Log("ERROR", "Swarm", message, fields)
+		return
+	}
+	if output == "" {
+		fmt.Printf("❌ %s for %s: %v\n", message, agentID, err)
+		return
+	}
+	fmt.Printf("❌ %s for %s: %v\nOutput: %s\n", message, agentID, err, output)
 }
 
 var swarmCmd = &cobra.Command{
@@ -124,75 +172,255 @@ var swarmStartCmd = &cobra.Command{
 			fmt.Printf("Initializing Swarm for project '%s' with %d workers...\n", projectName, workers)
 		}
 
-		for i := 1; i <= workers; i++ {
-			agentID := fmt.Sprintf("worker-%d", i)
+		pollInterval, _ := cmd.Flags().GetDuration("poll-interval")
+		maxIdle, _ := cmd.Flags().GetDuration("max-idle")
 
-			if _, err := projectManager.ReconcileTaskReadiness(projectName, "swarm"); err != nil {
-				logger.Log("ERROR", "Swarm", "Failed to reconcile task readiness", map[string]interface{}{"error": err.Error()})
-				continue
-			}
-
-			views, _, err := projectManager.GetTaskViews(projectName)
-			if err != nil {
-				return err
-			}
-			statusByID := buildStatusIndex(views)
-
-			// Find next runnable task or default to local.
-			var targetTask *TaskView
-			for _, v := range views {
-				if (v.AssignedTo == "" || v.AssignedTo == agentID) && isTaskRunnable(v, statusByID) {
-					targetTask = &v
-					break
-				}
-			}
-
-			if targetTask == nil {
-				// Default task view for worker if none found
-				targetTask = &TaskView{
-					ID: "default",
-					Behavior: AgentBehavior{
-						Environment: EnvironmentConfig{Provider: "local"},
-					},
-				}
-			}
-
-			if targetTask.ID != "default" {
-				if err := projectManager.UpdateTaskStatus(projectName, targetTask.ID, "IN_PROGRESS", agentID); err != nil {
-					logger.Log("ERROR", "Swarm", fmt.Sprintf("Failed to mark task %s as IN_PROGRESS", targetTask.ID), map[string]interface{}{"error": err.Error()})
-					continue
-				}
-			}
-
-			if err := runner.Start(projectName, agentID, targetTask); err != nil {
-				logger.Log("ERROR", "Swarm", fmt.Sprintf("Failed to start worker %d", i), map[string]interface{}{"error": err.Error()})
-				if targetTask.ID != "default" {
-					_ = projectManager.UpdateTaskStatus(projectName, targetTask.ID, "FAILED", agentID)
-					if _, retryErr := projectManager.ScheduleRetryIfAllowed(projectName, targetTask.ID, agentID, err.Error()); retryErr != nil {
-						logger.Log("ERROR", "Swarm", fmt.Sprintf("Failed to schedule retry for %s", targetTask.ID), map[string]interface{}{"error": retryErr.Error()})
-					}
-				}
-			}
-			time.Sleep(200 * time.Millisecond)
+		if workers < 1 {
+			return fmt.Errorf("workers must be >= 1")
+		}
+		if pollInterval <= 0 {
+			return fmt.Errorf("poll-interval must be > 0")
+		}
+		if maxIdle <= 0 {
+			return fmt.Errorf("max-idle must be > 0")
+		}
+		if err := validateProjectExecutionContracts(projectManager, projectName); err != nil {
+			return err
 		}
 
-		if globalJSON {
-			logger.Log("INFO", "Swarm", "Swarm fully operational", map[string]interface{}{"workers": workers})
-		} else {
-			fmt.Println("Swarm fully operational.")
-		}
-
-		// 6. Supervisor Loop (if enabled)
+		// 5. Supervisor Loop (if enabled)
 		supervisorEnabled, _ := cmd.Flags().GetBool("supervisor")
 		if supervisorEnabled {
 			if !globalJSON {
 				fmt.Println("🛡️ Supervisor active. Monitoring for blocked agents...")
 			}
-			runSupervisor(projectName, logger)
+			go runSupervisor(projectName, logger)
+		}
+
+		if err := runSwarmToCompletion(projectName, workers, pollInterval, maxIdle, runner, projectManager, logger); err != nil {
+			return err
+		}
+
+		if globalJSON {
+			logger.Log("INFO", "Swarm", "Swarm run completed", map[string]interface{}{"workers": workers})
+		} else {
+			fmt.Println("Swarm run completed.")
 		}
 
 		return nil
 	},
+}
+
+func runSwarmToCompletion(projectName string, workers int, pollInterval, maxIdle time.Duration, runner *BackgroundRunner, projectManager *ProjectDataManager, logger *swarm.EventLogger) error {
+	if workers < 1 {
+		return fmt.Errorf("workers must be >= 1")
+	}
+
+	var (
+		wg           sync.WaitGroup
+		stopCh       = make(chan struct{})
+		stopOnce     sync.Once
+		lastProgMu   sync.RWMutex
+		lastProgAt   = time.Now()
+		errMu        sync.Mutex
+		executionErr error
+	)
+
+	stop := func() {
+		stopOnce.Do(func() {
+			close(stopCh)
+		})
+	}
+	markProgress := func() {
+		lastProgMu.Lock()
+		lastProgAt = time.Now()
+		lastProgMu.Unlock()
+	}
+	getLastProgress := func() time.Time {
+		lastProgMu.RLock()
+		defer lastProgMu.RUnlock()
+		return lastProgAt
+	}
+	setExecutionErr := func(err error) {
+		if err == nil {
+			return
+		}
+		errMu.Lock()
+		if executionErr == nil {
+			executionErr = err
+			stop()
+		}
+		errMu.Unlock()
+	}
+
+	for i := 1; i <= workers; i++ {
+		agentID := fmt.Sprintf("worker-%d", i)
+		wg.Add(1)
+		go func(workerID string) {
+			defer wg.Done()
+
+			for {
+				select {
+				case <-stopCh:
+					return
+				default:
+				}
+
+				task, claimErr := projectManager.ClaimNextRunnableTask(projectName, workerID)
+				if claimErr != nil {
+					if logger != nil {
+						logger.Log("ERROR", "Swarm", "Failed to claim task", map[string]interface{}{
+							"agent": workerID,
+							"error": claimErr.Error(),
+						})
+					}
+					time.Sleep(pollInterval)
+					continue
+				}
+
+				if task == nil {
+					snapshot, snapErr := projectManager.GetExecutionSnapshot(projectName)
+					if snapErr != nil {
+						if logger != nil {
+							logger.Log("ERROR", "Swarm", "Failed to read execution snapshot", map[string]interface{}{
+								"agent": workerID,
+								"error": snapErr.Error(),
+							})
+						}
+						time.Sleep(pollInterval)
+						continue
+					}
+
+					if snapshot.AllTerminal {
+						stop()
+						return
+					}
+
+					if snapshot.InProgress == 0 && snapshot.Retrying == 0 && time.Since(getLastProgress()) >= maxIdle {
+						setExecutionErr(fmt.Errorf("swarm stalled after %s (%s)", maxIdle, snapshot.Summary()))
+						return
+					}
+
+					time.Sleep(pollInterval)
+					continue
+				}
+
+				markProgress()
+				runErr := runner.RunTask(projectName, workerID, task)
+				if runErr != nil && logger != nil {
+					logger.Log("WARN", "Swarm", "Worker execution failed", map[string]interface{}{
+						"agent": workerID,
+						"task":  task.ID,
+						"error": runErr.Error(),
+					})
+				}
+				markProgress()
+			}
+		}(agentID)
+	}
+
+	wg.Wait()
+
+	errMu.Lock()
+	defer errMu.Unlock()
+	return executionErr
+}
+
+func validateProjectExecutionContracts(projectManager *ProjectDataManager, projectName string) error {
+	views, _, err := projectManager.GetTaskViews(projectName)
+	if err != nil {
+		return err
+	}
+
+	var missing []string
+	for _, task := range views {
+		status := canonicalStatus(task.Status)
+		if status == "DONE" || status == "FAILED" || status == "CANCELLED" {
+			continue
+		}
+		if _, err := resolveTaskExecution(&task); err != nil {
+			missing = append(missing, task.ID)
+		}
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("project has tasks without execution contract (set behavior.command or plugin assignment): %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func resolveTaskExecution(task *TaskView) (executionPlan, error) {
+	if task == nil {
+		return executionPlan{}, fmt.Errorf("nil task")
+	}
+
+	pluginName := strings.TrimSpace(task.Behavior.Plugin)
+	if pluginName == "" {
+		assigned := strings.TrimSpace(task.AssignedTo)
+		if strings.HasPrefix(assigned, "plugin:") {
+			pluginName = strings.TrimSpace(strings.TrimPrefix(assigned, "plugin:"))
+		}
+	}
+	if pluginName != "" {
+		return executionPlan{PluginName: pluginName}, nil
+	}
+
+	command := strings.TrimSpace(task.Behavior.Command)
+	if command != "" {
+		return executionPlan{Command: command}, nil
+	}
+
+	return executionPlan{}, fmt.Errorf("task %s has no execution contract", task.ID)
+}
+
+func executePluginForTask(task *TaskView, pluginName string) (string, error) {
+	req := PluginRequest{
+		TaskID:       task.ID,
+		Role:         task.Behavior.Role,
+		Strategy:     task.Behavior.Strategy,
+		AllowedPaths: collectAllowedPaths(task),
+	}
+
+	resp, err := ExecutePlugin(pluginName, req)
+	if err != nil {
+		return "", err
+	}
+
+	status := strings.ToUpper(strings.TrimSpace(resp.Status))
+	if status == "DONE" || status == "SUCCESS" || status == "OK" {
+		return strings.TrimSpace(resp.Message), nil
+	}
+	if status == "" {
+		status = "UNKNOWN"
+	}
+	return strings.TrimSpace(resp.Message), fmt.Errorf("plugin returned non-success status: %s", status)
+}
+
+func collectAllowedPaths(task *TaskView) []string {
+	seen := make(map[string]struct{})
+	var out []string
+
+	appendPath := func(p string) {
+		trimmed := strings.TrimSpace(p)
+		if trimmed == "" {
+			return
+		}
+		if _, ok := seen[trimmed]; ok {
+			return
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+
+	appendPath(task.WatchPath)
+	for _, p := range task.WatchPaths {
+		appendPath(p)
+	}
+	for _, p := range task.RequiresFiles {
+		appendPath(p)
+	}
+
+	return out
 }
 
 func runSupervisor(projectName string, logger *swarm.EventLogger) {
@@ -276,4 +504,6 @@ func init() {
 	swarmStartCmd.Flags().IntP("workers", "w", 3, "Number of worker agents to spawn")
 	swarmStartCmd.Flags().StringP("project", "p", "", "Project name")
 	swarmStartCmd.Flags().Bool("supervisor", false, "Enable the Self-Healing Supervisor")
+	swarmStartCmd.Flags().Duration("poll-interval", 500*time.Millisecond, "Polling interval for worker scheduling")
+	swarmStartCmd.Flags().Duration("max-idle", 30*time.Second, "Maximum idle time before reporting a stalled swarm")
 }

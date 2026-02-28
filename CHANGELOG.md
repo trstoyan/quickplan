@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Execution Contract Fields**: Added `behavior.command` and `behavior.plugin` to task behavior metadata.
+- **Swarm Scheduler Primitives**: Added claim/snapshot scheduler helpers and worker-loop orchestration until completion.
+- **Execution Contract Validation**: `swarm start` now fails fast when runnable tasks do not define command/plugin execution.
+- **Task Authoring Flags**: Added `quickplan add --command` and `quickplan add --plugin`.
+- **Runner Coverage**: Added tests for local runner shell command execution and execution contract resolution.
+
+### Changed
+- **No Simulated Success**: Local runner now rejects empty commands instead of returning simulated completion.
+- **Shell Command Support**: Local runner executes commands through `sh -lc` to support operators (`&&`, pipes, redirects, quoting).
+- **Unified Runtime Path**: Daemon now uses the same task execution flow as swarm workers (command/plugin + status/retry handling).
+- **Interactive Init Contract**: `quickplan init --interactive` now asks for a required execution command per task.
+
+### Documentation
+- Updated `README.md`, `GETTING_STARTED.md`, `USAGE.md`, and `ARCHITECTURE.md` with execution contract requirements and swarm flags.
+
 ## [0.3.0] - 2026-02-19
 
 ### Added

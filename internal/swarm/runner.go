@@ -6,8 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/daytonaio/daytona/libs/sdk-go/pkg/daytona"
 	"github.com/daytonaio/daytona/libs/sdk-go/pkg/types"
@@ -23,10 +21,10 @@ type Runner interface {
 
 // LocalRunner executes tasks on the local machine
 type LocalRunner struct {
-	Project    string
-	AgentID    string
-	Workspace  string
-	Logger     *EventLogger
+	Project   string
+	AgentID   string
+	Workspace string
+	Logger    *EventLogger
 }
 
 func (r *LocalRunner) SetLogger(logger *EventLogger) {
@@ -70,13 +68,10 @@ func (r *LocalRunner) Execute(command string, task *TaskView) (string, error) {
 	}
 
 	if command == "" {
-		// Default behavior if no command: simulate work
-		time.Sleep(2 * time.Second)
-		return "Simulated task completion", nil
+		return "", fmt.Errorf("no execution command provided")
 	}
 
-	parts := strings.Split(command, " ")
-	cmd := exec.Command(parts[0], parts[1:]...)
+	cmd := exec.Command("sh", "-lc", command)
 	cmd.Dir = r.Workspace
 	applyLocalSandbox(cmd, r.Workspace)
 
@@ -214,7 +209,7 @@ func GetRunner(project, agentID string, task *TaskView) Runner {
 
 	// Default to local
 	return &LocalRunner{
-		Project:    project,
-		AgentID:    agentID,
+		Project: project,
+		AgentID: agentID,
 	}
 }

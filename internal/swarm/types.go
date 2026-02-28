@@ -12,6 +12,8 @@ type AgentBehavior struct {
 	LifeCycle    string            `yaml:"lifecycle,omitempty"`     // e.g., "Atomic" (one-shot) or "Infinite" (loop)
 	LoopInterval string            `yaml:"loop_interval,omitempty"` // e.g., "30s"
 	Strategy     string            `yaml:"strategy,omitempty"`      // e.g., "TDD" or "Fast Prototype"
+	Command      string            `yaml:"command,omitempty"`       // shell command for task execution
+	Plugin       string            `yaml:"plugin,omitempty"`        // plugin executable name
 	Environment  EnvironmentConfig `yaml:"environment,omitempty"`
 }
 

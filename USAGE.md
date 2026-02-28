@@ -51,3 +51,23 @@ if [ "$STATUS" == "success" ]; then
   echo "Agent successfully completed task $TASK_ID"
 fi
 ```
+
+## Swarm/Daemon Execution Contract
+
+`quickplan swarm start` and `quickplan daemon` only execute runnable tasks that declare an execution contract:
+
+- `behavior.command`
+- `behavior.plugin` or `assigned_to: plugin:<name>`
+
+Create runnable tasks directly from CLI:
+
+```bash
+quickplan add "Run tests" --project "$PROJECT" --command "go test ./..."
+quickplan add "Security scan" --project "$PROJECT" --plugin secscan
+```
+
+Run the swarm until completion (or stall timeout):
+
+```bash
+quickplan swarm start --project "$PROJECT" --workers 3 --poll-interval 500ms --max-idle 30s
+```
