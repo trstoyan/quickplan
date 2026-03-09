@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"sort"
 	"testing"
 	"time"
 )
@@ -76,5 +78,56 @@ func TestBlobEncoding(t *testing.T) {
 
 	if decoded.Header.ProjectID != "p1" {
 		t.Errorf("encoding/decoding mismatch")
+	}
+}
+
+func TestRevisionBlobJSONContract(t *testing.T) {
+	blob := RevisionBlob{
+		Header: RevisionHeader{
+			ProjectID:      "proj-1",
+			RevID:          "rev-1",
+			Alg:            "aes-256-gcm+x25519+ed25519:v1",
+			AuthorPubKey:   "author-pub",
+			CreatedAt:      time.Date(2026, time.March, 9, 10, 11, 12, 0, time.UTC),
+			CiphertextHash: "abc123",
+		},
+		NonceB64:      "nonce",
+		CiphertextB64: "ciphertext",
+		SignatureB64:  "signature",
+	}
+
+	data, err := json.Marshal(blob)
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+
+	expectedTopLevelKeys := []string{"ciphertext_b64", "header", "nonce_b64", "signature_b64"}
+	actualTopLevelKeys := make([]string, 0, len(decoded))
+	for key := range decoded {
+		actualTopLevelKeys = append(actualTopLevelKeys, key)
+	}
+	sort.Strings(actualTopLevelKeys)
+	if !reflect.DeepEqual(actualTopLevelKeys, expectedTopLevelKeys) {
+		t.Fatalf("unexpected top-level keys: got %v want %v", actualTopLevelKeys, expectedTopLevelKeys)
+	}
+
+	header, ok := decoded["header"].(map[string]any)
+	if !ok {
+		t.Fatalf("header should be an object, got %T", decoded["header"])
+	}
+
+	expectedHeaderKeys := []string{"alg", "author_pubkey", "ciphertext_hash", "created_at", "project_id", "rev_id"}
+	actualHeaderKeys := make([]string, 0, len(header))
+	for key := range header {
+		actualHeaderKeys = append(actualHeaderKeys, key)
+	}
+	sort.Strings(actualHeaderKeys)
+	if !reflect.DeepEqual(actualHeaderKeys, expectedHeaderKeys) {
+		t.Fatalf("unexpected header keys: got %v want %v", actualHeaderKeys, expectedHeaderKeys)
 	}
 }

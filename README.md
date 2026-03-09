@@ -364,40 +364,22 @@ go test -cover ./...
 - `github.com/charmbracelet/huh` - Interactive forms and menus
 - `gopkg.in/yaml.v3` - YAML parsing
 
-## Roadmap
+## Roadmap Alignment
 
-### v0.9 - Production Readiness (Current)
-- [x] List tasks with completion status
-- [x] Mark tasks as done with timestamps
-- [x] Archive projects
-- [x] Project and task timestamps
-- [x] Smart task listing (completed tasks at bottom, latest 5 by default)
-- [x] Multi-project task listing (--all-projects flag)
-- [x] Burndown charts
-- [x] Delete tasks with confirmation
-- [x] Version tracking and migration
-- [x] .quickplanignore support
-- [x] Project configuration (project.yml)
-- [x] Comprehensive unit tests
+Product sequencing is authoritative in:
+- `../quickplan-docs/product/ROADMAP_V2.md`
 
-### v1.0 - Individual User Features
-- [ ] Filter and search tasks
-- [ ] Export tasks to various formats
-- [ ] Import from other task managers
-- [ ] Task priorities and due dates
-- [ ] Enhanced task notes and descriptions
+Engineering best practices and architecture constraints are authoritative in:
+- `../quickplan-docs/development/ENGINEERING_RULES.md`
+- `../quickplan-docs/development/FREEZE_NOTICE.md`
+- `../quickplan-docs/architecture/PLATFORM_ARCHITECTURE.md`
 
-### v1.5 - Team Collaboration (Free)
-- [ ] Git-based sync for team projects
-- [ ] Windows support
-- [ ] Cross-platform binary distribution
+Roadmap V2 sequencing reminders:
+- Convergence before expansion
+- Projection model before dashboard expansion
+- Execution substrate hardening before collaboration expansion
 
-### v2.0 - SaaS Platform (Paid)
-- [ ] quickplan.sh subscription service
-- [ ] Web interface
-- [ ] Real-time team collaboration
-- [ ] Advanced reporting and analytics
-- [ ] Manager CLI (extended features - paid only)
+CLI implementation status should be tracked as execution-kernel progress, not as the authoritative product roadmap.
 
 ## Commercial vs. Open Source
 
