@@ -17,7 +17,7 @@ A fast, lightweight CLI task manager for Linux with project support and vim-insp
 - ⏰ **Timestamps** - Track creation and modification times
 - 🔄 **Version tracking** - Automatic version migration for project data
 - 🚫 **Ignore patterns** - Customize which directories to ignore (`.quickplanignore`)
-- 🔗 **Sync source config** - Prepare for future team collaboration (git/server sync)
+- 🔗 **Sync source config** - Optional metadata for future remote sync workflows
 - 📈 **Burndown charts** - Visualize task completion progress over time
 - ⚡ **Fast & lightweight** - Written in Go, single binary
 - 📦 **RPM packaging** - Easy installation on RPM-based systems
@@ -320,13 +320,13 @@ name: "myproject"
 description: "My awesome project"
 sync_source:
   type: "local"  # Options: local, git, server
-  url: ""        # For git: repo URL, for server: quickplan.sh URL
+  url: ""        # For git: repo URL, for server: remote service URL
   branch: ""     # For git sources
 created: 2025-11-03T13:07:12Z
 modified: 2025-11-03T14:30:00Z
 ```
 
-**Note:** The `sync_source` configuration prepares QuickPlan for future team collaboration features, allowing projects to sync from different sources (git repositories, quickplan.sh servers, etc.).
+**Note:** The `sync_source` configuration is optional. It allows projects to record where they may later be synced from or published to, without changing the local-first CLI workflow.
 
 ## Development
 
@@ -364,29 +364,23 @@ go test -cover ./...
 - `github.com/charmbracelet/huh` - Interactive forms and menus
 - `gopkg.in/yaml.v3` - YAML parsing
 
-## Roadmap Alignment
+## Project Direction
 
-Product sequencing is authoritative in:
-- `../quickplan-docs/product/ROADMAP_V2.md`
+QuickPlan CLI is maintained as a standalone, local-first tool.
 
-Engineering best practices and architecture constraints are authoritative in:
-- `../quickplan-docs/development/ENGINEERING_RULES.md`
-- `../quickplan-docs/development/FREEZE_NOTICE.md`
-- `../quickplan-docs/architecture/PLATFORM_ARCHITECTURE.md`
-
-Roadmap V2 sequencing reminders:
-- Convergence before expansion
-- Projection model before dashboard expansion
-- Execution substrate hardening before collaboration expansion
-
-CLI implementation status should be tracked as execution-kernel progress, not as the authoritative product roadmap.
+Public priorities for this repository are:
+- stable local task and project workflows
+- clear file formats and migration behavior
+- reliable local execution contracts for runnable tasks
+- optional remote sync that does not break standalone usage
+- small, reviewable changes with good test coverage
 
 ## Commercial vs. Open Source
 
 QuickPlan follows an **Open Core** model:
 
-- **CLI / Local Agent (MIT)**: The `quick-plan-cli` tool you are using is 100% open-source and free forever. It is designed for individual developers, local-first workflows, and ad-hoc automation.
-- **Federated Swarms & Managed Registry (Commercial)**: Features involving multi-agent orchestration, team collaboration, and the hosted registry at `quickplan.sh` are premium services. These features enable enterprise-grade scale, security, and management for agent swarms.
+- **QuickPlan CLI (MIT)**: This repository contains the open-source command-line tool for local-first project and task workflows.
+- **Hosted / Managed Offerings**: Separately operated services may provide remote sync, collaboration, or managed automation. Those services are not included in this repository.
 
 ## License
 

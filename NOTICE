@@ -10,5 +10,5 @@ This project includes:
 
 TRADEMARK NOTICE:
 The "QuickPlan" name and logo are trademarks of the QuickPlan Team.
-The hosted service at quickplan.sh is a commercial offering and is not covered by the MIT license of this CLI tool.
-References to "quickplan-web", "federation", and "registry" refer to these commercial services.
+Hosted or managed QuickPlan services are separate commercial offerings and are not covered by the MIT license of this CLI tool.
+This repository contains the CLI only and does not include server-side commercial components.

@@ -41,7 +41,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - Refactored `cmd_add.go` to support agent-specific flags (`--assigned-to`, `--role`, `--strategy`, etc.).
-- Enhanced `quickplan-web` with registry API endpoints.
+- Expanded remote registry interoperability for blueprint sync workflows.
 
 ## [0.1.0] - 2026-02-15
 

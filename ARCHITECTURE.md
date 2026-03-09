@@ -1,35 +1,34 @@
-# Quick Plan: Multi-Agent Orchestration Protocol
+# QuickPlan CLI Architecture
 
 ## Overview
-Quick Plan is a decentralized, local-first orchestration protocol that treats project management as a shared "Blackboard". It enables humans and AI agents to collaborate seamlessly using a structured YAML state.
+QuickPlan CLI is a local-first command-line tool for managing project state, runnable tasks, and optional automation metadata using structured YAML files.
 
 ## Core Philosophy
-1.  **Local-First & Private:** Work stays on your machine until you choose to sync it.
-2.  **Primitive Orchestration:** Leverages Linux native features (Pipes, inotify, signals) for low overhead and high reliability.
-3.  **Vendor-Agnostic:** Compatible with any LLM CLI (Gemini, Claude, Codex, etc.).
-4.  **Living Plan:** Agents don't just follow the plan; they verify the environment and update the plan dynamically.
+1.  **Local-First:** Work stays on your machine unless you explicitly sync it elsewhere.
+2.  **Inspectable State:** Project state is stored in plain files that can be reviewed and versioned.
+3.  **Deterministic Execution Contracts:** Runnable tasks must declare how they execute.
+4.  **Optional Automation:** Local workers and daemon flows build on the same stored task model.
 
 ## Architecture
 
-### 1. State Layer (The Blackboard)
+### 1. State Layer
 - **Tool:** `quickplan` (Go CLI)
 - **Format:** `tasks.yaml`
 - **Responsibility:** Manages tasks, dependencies, agent behaviors, and metadata.
 
-### 2. Execution Layer (The Nerves)
+### 2. Execution Layer
 - **Communication:** Shared project state (`tasks.yaml` / `project.yaml`) with lock-protected status transitions.
 - **Reflexes:** Readiness reconciliation + periodic/fsnotify scans to discover runnable tasks.
-- **DNA Handshake:** `quickplan agent init` generates system prompts that define agent roles and constraints.
 - **Execution Contract:** Runnable tasks must define either:
   - `behavior.command` (executed by local/daytona runners)
   - `behavior.plugin` or `assigned_to: plugin:<name>`
 
-### 3. Network Layer (The Hive)
-- **Registry:** `quickplan.sh` (Central/Decentralized server)
-- **Sync:** `push` and `pull` project blueprints and agent behaviors.
+### 3. Optional Remote Sync Layer
+- **Remote Service:** A compatible remote endpoint may accept pushed or pulled project blueprints.
+- **Sync:** `push` and `pull` move project blueprint data without changing local CLI authority over local state.
 
 ## Supervisor-Worker Hierarchy
-Quick Plan utilizes a two-tier management structure:
+QuickPlan CLI can coordinate a simple two-tier local execution model:
 
 1. **The Worker (The Muscle):**
    - Focuses on atomic task execution.
@@ -38,13 +37,11 @@ Quick Plan utilizes a two-tier management structure:
 
 2. **The Supervisor (The Brain/Self-Healing):**
    - Monitors the Blackboard for `BLOCKED` states.
-   - Analyzes blocker reasons using a "Correction Agent".
-   - Injects new sub-tasks into the plan to resolve dependencies or errors.
    - Works with stall detection (`--max-idle`) to avoid silent deadlocks.
 
 ## Implementation Details
 
-### Agent DNA (Behavior Block)
+### Behavior Block
 ```yaml
 behavior:
   role: "Senior Go Architect"
@@ -54,8 +51,8 @@ behavior:
   loop_interval: "30s"
 ```
 
-### Active Awareness
-Agents use native state verification to ensure that both logical (task status) and physical (file existence) dependencies are met before proceeding.
+### Readiness Checks
+Workers use stored task state and local environment checks to determine whether work is runnable.
 
 ## Getting Started
 1. Install `quickplan` CLI.

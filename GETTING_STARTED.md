@@ -1,6 +1,6 @@
-# Getting Started with Quick Plan Swarms 🤖
+# Getting Started with QuickPlan CLI
 
-This guide will walk you through setting up your first 4-terminal "Agent Swarm" using the Quick Plan Primitive Orchestration Protocol.
+This guide walks through a local-first setup for QuickPlan CLI. It focuses on standalone usage first, then shows where optional remote sync can fit in later.
 
 ## Prerequisites
 - **Arch Linux** (or any Linux with `inotify-tools` and `mkfifo` support)
@@ -21,13 +21,7 @@ Initialize your project:
 quickplan init my-swarm --interactive
 ```
 
-## 2. Configure the Registry
-Set your registry endpoint to the new persistent Go backend:
-```bash
-export QUICKPLAN_REGISTRY_URL="https://registry.quickplan.sh"
-```
-
-## 3. Add Runnable Tasks
+## 2. Add Runnable Tasks
 
 Workers now require an explicit execution contract per runnable task.
 
@@ -42,7 +36,7 @@ You can also route work to plugins:
 quickplan add "Security scan" --project my-swarm --plugin secscan
 ```
 
-## 4. Spawn the Swarm
+## 3. Run Workers
 
 Use the built-in orchestrator:
 
@@ -55,7 +49,7 @@ The CLI will:
 2. Start persistent workers that keep claiming runnable tasks.
 3. Continue until the project reaches terminal state or stall timeout.
 
-## 5. Advanced: Sandboxed Execution
+## 4. Advanced: Sandboxed Execution
 If you have **Daytona** installed, you can run tasks in isolated environments:
 
 ```bash
@@ -70,7 +64,7 @@ tasks:
 
 When the worker picks up this task, it will automatically spin up a Daytona workspace, execute the command, and tear it down.
 
-## 6. Run the Global Daemon (Optional)
+## 5. Run the Global Daemon (Optional)
 
 For continuous background orchestration:
 
@@ -80,10 +74,13 @@ quickplan daemon
 
 The daemon uses the same execution contract and retry/readiness logic as `swarm start`.
 
-## 7. Sync to the Hive
-Ready to share your signed blueprint?
+## 6. Optional Remote Sync
+
+QuickPlan CLI can also push and pull project blueprints when you point it at a compatible remote service:
+
 ```bash
+export QUICKPLAN_REGISTRY_URL="https://your-service.example"
 quickplan sync push --project my-swarm
 ```
 
-Congratulations! You have just orchestrated a zero-overhead, reactive AI swarm using nothing but Go and Linux primitives.
+If you do not configure a remote service, QuickPlan CLI still works as a fully local-first tool.
