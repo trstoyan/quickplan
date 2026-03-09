@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -95,6 +96,56 @@ var eventsExportCmd = &cobra.Command{
 	},
 }
 
+var eventsExportProjectionCmd = &cobra.Command{
+	Use:   "export-projection",
+	Short: "Export a bounded execution projection bundle as JSON",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		projectName, err := getTargetProject(cmd)
+		if err != nil {
+			return err
+		}
+
+		dataDir, err := getDataDir()
+		if err != nil {
+			return err
+		}
+
+		versionManager := NewVersionManager(version)
+		projectManager := NewProjectDataManager(dataDir, versionManager)
+
+		limit, _ := cmd.Flags().GetInt("limit")
+		bundle, err := projectManager.BuildExecutionProjectionBundle(projectName, limit)
+		if err != nil {
+			return err
+		}
+
+		outPath, _ := cmd.Flags().GetString("out")
+		if outPath == "" {
+			outPath = fmt.Sprintf("%s.execution-projection.json", projectName)
+		}
+
+		if err := WriteExecutionProjectionBundle(outPath, bundle); err != nil {
+			return err
+		}
+
+		if globalJSON {
+			payload, _ := json.Marshal(map[string]interface{}{
+				"project":           projectName,
+				"out":               outPath,
+				"bridge_version":    bundle.BridgeVersion,
+				"included_events":   bundle.EventWindow.IncludedEvents,
+				"end_sequence":      bundle.EventWindow.EndSequence,
+				"snapshot_terminal": bundle.Snapshot.AllTerminal,
+			})
+			fmt.Println(string(payload))
+			return nil
+		}
+
+		_, _ = fmt.Fprintf(os.Stdout, "Execution projection exported to %s\n", outPath)
+		return nil
+	},
+}
+
 func init() {
 	eventsCmd.AddCommand(eventsTailCmd)
 	eventsTailCmd.Flags().IntP("n", "n", 50, "Number of events to show")
@@ -103,4 +154,9 @@ func init() {
 	eventsCmd.AddCommand(eventsExportCmd)
 	eventsExportCmd.Flags().Bool("json", true, "Export as JSON (default true)")
 	eventsExportCmd.Flags().StringP("project", "p", "", "Project name")
+
+	eventsCmd.AddCommand(eventsExportProjectionCmd)
+	eventsExportProjectionCmd.Flags().StringP("project", "p", "", "Project name")
+	eventsExportProjectionCmd.Flags().String("out", "", "Output path for the projection bundle JSON")
+	eventsExportProjectionCmd.Flags().Int("limit", defaultExecutionProjectionLimit, "Maximum number of most recent execution events to include")
 }
