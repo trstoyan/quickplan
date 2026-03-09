@@ -16,7 +16,13 @@ func applyWebAuth(req *http.Request) {
 		req.Header.Set("X-API-Key", key)
 	}
 
-	if token := strings.TrimSpace(os.Getenv("QUICKPLAN_WEB_TOKEN")); token != "" {
+	// QUICKPLAN_REMOTE_TOKEN is the public name for bearer auth to compatible
+	// remote services. QUICKPLAN_WEB_TOKEN remains as a legacy fallback.
+	token := strings.TrimSpace(os.Getenv("QUICKPLAN_REMOTE_TOKEN"))
+	if token == "" {
+		token = strings.TrimSpace(os.Getenv("QUICKPLAN_WEB_TOKEN"))
+	}
+	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 }

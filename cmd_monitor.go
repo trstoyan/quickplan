@@ -101,7 +101,7 @@ var monitorCmd = &cobra.Command{
 
 func init() {
 	monitorCmd.Flags().StringP("project", "p", "", "Filter by project name")
-	monitorCmd.Flags().String("url", "http://localhost:8081", "Registry base URL")
+	monitorCmd.Flags().String("url", "http://localhost:8081", "Remote service base URL")
 	monitorCmd.Flags().Bool("json", false, "Output as raw JSON lines")
 }
 

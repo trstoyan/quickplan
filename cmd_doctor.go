@@ -29,7 +29,7 @@ var doctorCmd = &cobra.Command{
 				"lock":     map[string]interface{}{"status": "OK"},
 				"schema":   map[string]interface{}{"status": "OK"},
 				"deps":     map[string]interface{}{"status": "OK"},
-				"registry": map[string]interface{}{"status": "OK"},
+				"remote": map[string]interface{}{"status": "OK"},
 			}
 
 			// 1. Lock
@@ -85,7 +85,7 @@ var doctorCmd = &cobra.Command{
 				report["deps"] = map[string]string{"status": "SKIPPED", "message": "Load failed"}
 			}
 
-			// 4. Registry
+			// 4. Remote service
 			registryURL := os.Getenv("QUICKPLAN_REGISTRY_URL")
 			if registryURL == "" {
 				registryURL = "http://localhost:8081"
@@ -93,7 +93,7 @@ var doctorCmd = &cobra.Command{
 			client := http.Client{Timeout: 2 * time.Second}
 			req, reqErr := http.NewRequest(http.MethodGet, registryURL+"/api/v1/info", nil)
 			if reqErr != nil {
-				report["registry"] = map[string]interface{}{"status": "ERROR", "url": registryURL, "message": reqErr.Error()}
+				report["remote"] = map[string]interface{}{"status": "ERROR", "url": registryURL, "message": reqErr.Error()}
 				jsonOut, _ := json.Marshal(report)
 				fmt.Println(string(jsonOut))
 				return nil
@@ -101,16 +101,16 @@ var doctorCmd = &cobra.Command{
 			applyWebAuth(req)
 			resp, err := client.Do(req)
 			if err != nil {
-				report["registry"] = map[string]interface{}{"status": "ERROR", "url": registryURL, "message": "Unreachable"}
+				report["remote"] = map[string]interface{}{"status": "ERROR", "url": registryURL, "message": "Unreachable"}
 			} else {
 				defer resp.Body.Close()
 				var info struct {
 					Status string `json:"status"`
 				}
 				if err := json.NewDecoder(resp.Body).Decode(&info); err == nil {
-					report["registry"] = map[string]interface{}{"status": "OK", "url": registryURL, "remote_status": info.Status}
+					report["remote"] = map[string]interface{}{"status": "OK", "url": registryURL, "remote_status": info.Status}
 				} else {
-					report["registry"] = map[string]interface{}{"status": "WARN", "url": registryURL, "message": "Malformed response"}
+					report["remote"] = map[string]interface{}{"status": "WARN", "url": registryURL, "message": "Malformed response"}
 				}
 			}
 
@@ -179,8 +179,8 @@ var doctorCmd = &cobra.Command{
 			fmt.Println("SKIPPED (load failed)")
 		}
 
-		// 4. Check Registry Connectivity
-		fmt.Print("  [4/4] Registry status: ")
+			// 4. Check Remote Connectivity
+			fmt.Print("  [4/4] Remote status: ")
 		registryURL := os.Getenv("QUICKPLAN_REGISTRY_URL")
 		if registryURL == "" {
 			registryURL = "http://localhost:8081"

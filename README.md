@@ -382,6 +382,15 @@ QuickPlan follows an **Open Core** model:
 - **QuickPlan CLI (MIT)**: This repository contains the open-source command-line tool for local-first project and task workflows.
 - **Hosted / Managed Offerings**: Separately operated services may provide remote sync, collaboration, or managed automation. Those services are not included in this repository.
 
+## Optional Remote Integration
+
+When connecting to a compatible remote service, the CLI uses these environment variables:
+- `QUICKPLAN_REGISTRY_URL` for the remote base URL used by `quickplan sync` and remote health checks
+- `QUICKPLAN_REMOTE_TOKEN` for bearer authentication
+- `QUICKPLAN_API_KEY` for API-key authentication when supported by the remote service
+
+`QUICKPLAN_REMOTE_TOKEN` is the preferred public bearer-token variable. `QUICKPLAN_WEB_TOKEN` remains supported as a legacy fallback for older local setups.
+
 ## License
 
 MIT License - See [LICENSE](LICENSE) file for details.

@@ -16,12 +16,12 @@ import (
 
 var syncCmd = &cobra.Command{
 	Use:   "sync",
-	Short: "Synchronize projects with the quickplan.sh network",
+	Short: "Synchronize projects with a compatible remote service",
 }
 
 var pushCmd = &cobra.Command{
 	Use:   "push [project_name]",
-	Short: "Push a project blueprint to the registry",
+	Short: "Push a project blueprint to a remote registry",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		targetProject, err := getTargetProject(cmd)
@@ -109,14 +109,14 @@ var pushCmd = &cobra.Command{
 			return fmt.Errorf("registry returned error: %s", resp.Status)
 		}
 
-		fmt.Printf("Successfully pushed project '%s' to quickplan.sh network\n", targetProject)
-		return nil
-	},
-}
+			fmt.Printf("Successfully pushed project '%s' to the remote service\n", targetProject)
+			return nil
+		},
+	}
 
 var pullCmd = &cobra.Command{
 	Use:   "pull [blueprint_id]",
-	Short: "Pull a project blueprint from the registry",
+	Short: "Pull a project blueprint from a remote registry",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projectFlag, _ := cmd.Flags().GetString("project")
@@ -198,7 +198,7 @@ var pullCmd = &cobra.Command{
 
 var verifyCmd = &cobra.Command{
 	Use:   "verify [file.yaml]",
-	Short: "Verify a project YAML against the registry schema",
+	Short: "Verify a project YAML against the blueprint schema",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		filePath := args[0]
