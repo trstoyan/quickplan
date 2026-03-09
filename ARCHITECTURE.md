@@ -36,7 +36,7 @@ QuickPlan CLI can coordinate a simple two-tier local execution model:
    - Executes command/plugin and reports final state (`DONE`/`FAILED`).
 
 2. **The Supervisor (The Brain/Self-Healing):**
-   - Monitors the Blackboard for `BLOCKED` states.
+   - Monitors project state for `BLOCKED` states.
    - Works with stall detection (`--max-idle`) to avoid silent deadlocks.
 
 ## Implementation Details

@@ -35,7 +35,7 @@ All notable changes to this project will be documented in this file.
 - **Agent Behavior DNA**: New structs in `Task` model for `AssignedTo`, `DependsOn`, `Behavior` (Role, Lifecycle, Strategy), and `WatchPath`.
 - **DNA Handshake**: `quickplan agent init` command to generate system prompts for LLM initialization.
 - **Registry Sync**: `quickplan sync push/pull` commands for decentralized project blueprint sharing.
-- **Project Verification**: `quickplan verify` command to validate project DNA against the registry schema.
+- **Project Verification**: `quickplan verify` command to validate project YAML against the blueprint schema.
 - **Reactive Loop Scripts**: Added `qp-loop.sh` (using `inotifywait` and pipes) and `qp-guard.sh` for autonomous execution.
 - **Comprehensive Documentation**: Added `ARCHITECTURE.md` and `BLOG_POST.md`.
 

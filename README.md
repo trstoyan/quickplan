@@ -234,7 +234,7 @@ Default ignored patterns:
 - `.*` - All hidden directories (starting with dot)
 - `node_modules` - Node.js dependencies
 - `build` - Build artifacts
-- `.current_project` - QuickPlan's internal context file
+- `.current_project` - Current project marker used by the CLI
 
 ### Project Management Summary
 
